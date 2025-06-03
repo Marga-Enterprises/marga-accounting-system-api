@@ -5,7 +5,7 @@ name: Deploy to VPS
 on:
   push:
     branches:
-      - master  # ✅ Change to 'development' if testing from dev branch
+      - development  # ✅ Change to 'development' if testing from dev branch
 
 jobs:
   deploy:
