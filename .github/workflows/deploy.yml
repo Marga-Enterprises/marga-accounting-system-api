@@ -31,7 +31,7 @@ jobs:
             echo "✅ Connecting to server..."
 
             # 👇 Navigate to your app’s folder on the server
-            cd /var/www/accountingsystem.marga.biz
+            cd /var/www/accountingsystem.marga.biz/marga-accounting-system-api
 
             echo "🔁 Pulling latest code..."
             git reset --hard               # Discards any local changes
