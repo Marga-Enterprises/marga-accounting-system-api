@@ -28,9 +28,9 @@ exports.decodeToken = (token) => {
   } catch (err) {
       if (err.name === "TokenExpiredError") {
           console.error("Access token expired:", err);
-          return null; // ✅ Instead of crashing, return null
+          return null; 
       }
-      throw err; // ✅ If another error occurs, throw it
+      throw err; 
   }
 };
 
@@ -43,10 +43,10 @@ exports.generateToken = (user) => {
 
   const payload = {
     id: user.id,
-    username: user.user_username,
-    fname: user.user_fname,
-    lname: user.user_lname,
-    role: user.user_role,
+    user_username: user.user_username,
+    user_fname: user.user_fname,
+    user_lname: user.user_lname,
+    user_role: user.user_role,
   };
 
   return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRATION || '1h' });
@@ -67,8 +67,7 @@ exports.sendSuccess = (v, data, msg = '', sNum = 200, code = 0) => {
 
 
 // send error response
-exports.sendError = (v, err, msg = '', sNum = 400, code = 101) => {
-  console.error('Error:', err);
+exports.sendError = (v, data, msg = '', sNum = 400, code = 101) => {
   return v.status(sNum).json({
     author: 'Marga Software Development Team',
     msg,
@@ -81,8 +80,7 @@ exports.sendError = (v, err, msg = '', sNum = 400, code = 101) => {
 
 
 // send unauthorized response
-exports.sendUnauthorizedError = (v, err, msg = '', sNum = 401, code = 102) => {
-  console.error('Error:', err);
+exports.sendUnauthorizedError = (v, data, msg = '', sNum = 401, code = 102) => {
   return v.status(sNum).json({
     author: 'Marga Software Development Team',
     msg,

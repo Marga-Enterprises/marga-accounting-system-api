@@ -19,7 +19,7 @@ const port = process.env.PORT || 4000;
 const server = http.createServer(app);
 
 // Middleware
-app.use(express());
+app.use(express.json());
 app.use(cors());
 
 // Routes
