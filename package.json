@@ -30,6 +30,7 @@
     "@routes": "./app/routes",
     "@utils": "./app/utils",
     "@services": "./app/services",
+    "@validators": "./app/validators",
     "@config": "config"
   }
 }
