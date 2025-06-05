@@ -1,23 +1,36 @@
-exports.clearUserCache = async (userId) => {
+// redis client
+const redisClient = require('@config/redis');
+
+
+// clear department cache
+exports.clearDepartmentCache = async (departmentId) => {
   try {
-    console.log("🧹 Clearing user cache...");
+    console.log("🧹 Clearing department cache...");
 
-    // Define the pattern for user cache keys
-    const pattern = `user:${userId}:*`;
+    // Define the key patterns for departments
+    const pattern = `deparments:page*`;
+    const filteredPattern = `departments:page*:search*`;
+    
+    // If a departmentId is provided, create a specific key pattern for that department
+    const departmentKeys = departmentId ? await redisClient.keys(`department*_${departmentId}`) : [];
 
-    // Get all keys matching the pattern
-    const allKeys = await redisClient.keys(pattern);
+    // Fetch all keys matching the patterns
+    const allPaginatedKeys = await redisClient.keys(pattern);
+    const allFilteredKeys = await redisClient.keys(filteredPattern);
 
-    // If there are matching keys, delete them
+    // Combine all keys into a unique set
+    const allKeys = [...new Set([...allPaginatedKeys, ...allFilteredKeys, ...departmentKeys])];
+
+    // If there are any keys to delete, proceed with deletion
     if (allKeys.length > 0) {
       await redisClient.del(allKeys);
-      console.log(`🗑️ Cleared ${allKeys.length} user cache entries.`);
+      console.log(`🗑️ Cleared ${allKeys.length} department cache entries.`);
     } else {
-      console.log("ℹ️ No matching user cache keys found.");
+      console.log("ℹ️ No matching department cache keys found.");
     }
 
-    console.log("✅ User cache cleared.");
+    console.log("✅ Department cache cleared.");
   } catch (error) {
-    console.error("❌ Error clearing user cache:", error);
+    console.error("❌ Error clearing department cache:", error);
   }
-}
+};
