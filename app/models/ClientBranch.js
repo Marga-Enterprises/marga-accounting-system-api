@@ -1,5 +1,5 @@
 module.exports = (sequelize, DataTypes) => {
-    const ClientBranches = sequelize.define('ClientBranches', {
+    const ClientBranch = sequelize.define('ClientBranch', {
         id: {
             type: DataTypes.INTEGER(11),
             autoIncrement: true,
@@ -30,9 +30,14 @@ module.exports = (sequelize, DataTypes) => {
                 isEmail: true,
             },
         },
+        branch_status: {
+            type: DataTypes.ENUM('active', 'inactive', 'pending'),
+            allowNull: false,
+            defaultValue: 'active',
+        },
     }, {
         tableName: 'tbl_client_branches',
-        modelName: 'ClientBranches',
+        modelName: 'ClientBranch',
         sequelize,
         timestamps: true,
         paranoid: true,
@@ -53,5 +58,15 @@ module.exports = (sequelize, DataTypes) => {
         ],
     });
 
-    return ClientBranches;
+    // Associations
+    ClientBranch.associate = (models) => {
+        ClientBranch.belongsTo(models.Client, {
+            foreignKey: 'branch_client_id',
+            as: 'client',
+            onUpdate: 'CASCADE',
+            onDelete: 'RESTRICT',
+        });
+    };
+
+    return ClientBranch;
 }

@@ -12,7 +12,7 @@ exports.clearDepartmentCache = async (departmentId) => {
     const filteredPattern = `departments:page*:search*`;
     
     // If a departmentId is provided, create a specific key pattern for that department
-    const departmentKeys = departmentId ? await redisClient.keys(`department*_${departmentId}`) : [];
+    const departmentKeys = departmentId ? await redisClient.keys(`department*:${departmentId}`) : [];
 
     // Fetch all keys matching the patterns
     const allPaginatedKeys = await redisClient.keys(pattern);
@@ -32,5 +32,39 @@ exports.clearDepartmentCache = async (departmentId) => {
     console.log("✅ Department cache cleared.");
   } catch (error) {
     console.error("❌ Error clearing department cache:", error);
+  }
+};
+
+
+// clear clients cache
+exports.clearClientsCache = async (clientId) => {
+  try {
+    console.log("🧹 Clearing clients cache...");
+
+    // Define the key patterns for clients
+    const pattern = `clients:page*`;
+    const filteredPattern = `clients:page*:search*`;
+    
+    // If a clientId is provided, create a specific key pattern for that client
+    const clientKeys = clientId ? await redisClient.keys(`client*:${clientId}`) : [];
+
+    // Fetch all keys matching the patterns
+    const allPaginatedKeys = await redisClient.keys(pattern);
+    const allFilteredKeys = await redisClient.keys(filteredPattern);
+
+    // Combine all keys into a unique set
+    const allKeys = [...new Set([...allPaginatedKeys, ...allFilteredKeys, ...clientKeys])];
+
+    // If there are any keys to delete, proceed with deletion
+    if (allKeys.length > 0) {
+      await redisClient.del(allKeys);
+      console.log(`🗑️ Cleared ${allKeys.length} clients cache entries.`);
+    } else {
+      console.log("ℹ️ No matching clients cache keys found.");
+    }
+
+    console.log("✅ Clients cache cleared.");
+  } catch (error) {
+    console.error("❌ Error clearing clients cache:", error);
   }
 };

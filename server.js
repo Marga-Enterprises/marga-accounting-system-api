@@ -25,10 +25,12 @@ app.use(cors());
 // Routes
 const authRoutes = require("@routes/auth");
 const departmentRoutes = require("@routes/department");
+const clientRoutes = require("@routes/client");
 
 // Use routes
 app.use("/auth", authRoutes);
 app.use("/department", departmentRoutes);
+app.use("/client", clientRoutes);
 
 // Sync Database and Start Server
 sequelize
