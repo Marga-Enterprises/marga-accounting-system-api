@@ -6,31 +6,31 @@ module.exports = (sequelize, DataTypes) => {
             primaryKey: true,
             allowNull: false,
         },
-        branch_name: {
+        client_branch_name: {
             type: DataTypes.STRING(255),
             allowNull: false,
             unique: true,
         },
-        branch_client_id: {
+        client_branch_client_id: {
             type: DataTypes.INTEGER(11),
             allowNull: false,
         },
-        branch_address: {
+        client_branch_address: {
             type: DataTypes.STRING(255),
             allowNull: false,
         },
-        branch_phone: {
+        client_branch_phone: {
             type: DataTypes.STRING(20),
             allowNull: true,
         },
-        branch_email: {
+        client_branch_email: {
             type: DataTypes.STRING(100),
             allowNull: true,
             validate: {
                 isEmail: true,
             },
         },
-        branch_status: {
+        client_branch_status: {
             type: DataTypes.ENUM('active', 'inactive', 'pending'),
             allowNull: false,
             defaultValue: 'active',
@@ -44,16 +44,16 @@ module.exports = (sequelize, DataTypes) => {
         underscored: true,
         indexes: [
             {
-                name: 'idx_branch_name',
-                fields: ['branch_name'],
+                name: 'idx_client_branchname',
+                fields: ['client_branch_name'],
             },
             {
-                name: 'idx_branch_client_id',
-                fields: ['branch_client_id'],
+                name: 'idx_client_branch_client_id',
+                fields: ['client_branch_client_id'],
             },
             {
-                name: 'idx_branch_address',
-                fields: ['branch_address'],
+                name: 'idx_client_branch_address',
+                fields: ['client_branch_address'],
             },
         ],
     });
