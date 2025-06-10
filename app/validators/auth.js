@@ -1,3 +1,4 @@
+// validateLoginFields function to validate the fields required for user login
 exports.validateLoginFields = (data) => {
     const { user_username, user_password } = data;
     
@@ -8,6 +9,7 @@ exports.validateLoginFields = (data) => {
     return true;
 }
 
+// validateCreateUserFields function to validate the fields required for creating a new user
 exports.validateCreateUserFields = (data) => {
     const { 
         user_fname, 
