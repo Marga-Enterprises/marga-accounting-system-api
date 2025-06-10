@@ -79,17 +79,40 @@ exports.getAllClientsService = async (query) => {
     } : {};
 
     // fetch clients from the database with pagination and search
-    const clients = await Client.findAndCountAll({
+    const { count, rows } = await Client.findAndCountAll({
         where: whereClause,
         offset,
         limit,
-        order: [['createdAt', 'DESC']]
+        include: [
+            {
+                model: ClientBranch,
+                as: 'branches',
+                required: false, // include branches if they exist
+            },
+            {
+                model: ClientDepartment,
+                as: 'departments',
+                required: false, // include departments if they exist
+            }
+        ]
     });
 
-    // cache the result in Redis
-    await redisClient.set(cacheKey, JSON.stringify(clients), 'EX', 3600); // cache for 1 hour
+    // calculate total pages
+    const totalPages = Math.ceil(count / pageSize);
 
-    return clients;
+    // prepare the response object
+    const response = {
+        pageIndex,
+        pageSize,
+        totalPages,
+        totalItems: count,
+        clients: rows
+    }
+
+    // cache the result in Redis
+    await redisClient.set(cacheKey, JSON.stringify(response), 'EX', 3600); // cache for 1 hour
+
+    return response;
 };
 
 

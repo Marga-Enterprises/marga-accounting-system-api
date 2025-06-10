@@ -77,7 +77,7 @@ exports.clearClientDepartmentsCache = async (departmentId) => {
 
     // Define the key patterns for client departments
     const pattern = `client_departments:page*`;
-    const filteredPattern = `client_departments:page*:search*`;
+    const filteredPattern = `client_departments:page*:search*:clientId*`;
     
     // If a departmentId is provided, create a specific key pattern for that department
     const departmentKeys = departmentId ? await redisClient.keys(`client_department*:${departmentId}`) : [];
@@ -100,5 +100,39 @@ exports.clearClientDepartmentsCache = async (departmentId) => {
     console.log("✅ Client departments cache cleared.");
   } catch (error) {
     console.error("❌ Error clearing client departments cache:", error);
+  }
+};
+
+
+// clear client branches cache
+exports.clearClientBranchesCache = async (branchId) => {
+  try {
+    console.log("🧹 Clearing client branches cache...");
+
+    // Define the key patterns for client branches
+    const pattern = `client_branches:page*`;
+    const filteredPattern = `client_branches:page*:search*:clientId*`;
+    
+    // If a branchId is provided, create a specific key pattern for that branch
+    const branchKeys = branchId ? await redisClient.keys(`client_branch*:${branchId}`) : [];
+
+    // Fetch all keys matching the patterns
+    const allPaginatedKeys = await redisClient.keys(pattern);
+    const allFilteredKeys = await redisClient.keys(filteredPattern);
+
+    // Combine all keys into a unique set
+    const allKeys = [...new Set([...allPaginatedKeys, ...allFilteredKeys, ...branchKeys])];
+
+    // If there are any keys to delete, proceed with deletion
+    if (allKeys.length > 0) {
+      await redisClient.del(allKeys);
+      console.log(`🗑️ Cleared ${allKeys.length} client branches cache entries.`);
+    } else {
+      console.log("ℹ️ No matching client branches cache keys found.");
+    }
+
+    console.log("✅ Client branches cache cleared.");
+  } catch (error) {
+    console.error("❌ Error clearing client branches cache:", error);
   }
 };

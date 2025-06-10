@@ -79,26 +79,53 @@ exports.getAllClientDepartmentsService = async (query) => {
     pageIndex = parseInt(pageIndex);
     pageSize = parseInt(pageSize);
 
+    const offset = (pageIndex - 1) * pageSize;
+    const limit = pageSize;
+
+    // check if the clients are cached in Redis
+    const cacheKey = `client_departments:page:${pageIndex}:${pageSize}:search:${search || ''}:clientId:${clientId || ''}`;
+    const cachedClientDepartments = await redisClient.get(cacheKey);
+
+    if (cachedClientDepartments) {
+        // return cached clients if available
+        return JSON.parse(cachedClientDepartments);
+    }
+
     // build the where clause for search functionality
     const whereClause = search ? {
-        client_name: {
+        client_department_name: {
             [Op.like]: `%${search}%`,
         },
-        client_branch_client_id: clientId ? clientId : undefined
+        client_department_client_id: clientId ? clientId : undefined
     } : {};
 
     // fetch client departments with pagination and search
-    const clientDepartments = await ClientDepartment.findAndCountAll({
+    const { count, rows } = await ClientDepartment.findAndCountAll({
         where: whereClause,
-        offset: pageIndex * pageSize,
-        limit: pageSize,
+        offset,
+        limit,
         order: [['createdAt', 'DESC']]
     });
+
+    // calculate total pages
+    const totalPages = Math.ceil(count / pageSize);
+
+    // prepare the response object
+    const response = {
+        totalItems: count,
+        totalPages,
+        currentPage: pageIndex,
+        pageSize,
+        items: rows
+    };
+
+    // cache the result in Redis
+    await redisClient.set(cacheKey, JSON.stringify(response), 'EX', 3600); // cache for 1 hour
 
     // clear the client departments cache
     await clearClientDepartmentsCache();
 
-    return clientDepartments;
+    return response;
 };
 
 

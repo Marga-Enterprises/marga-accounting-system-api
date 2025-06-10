@@ -1,7 +1,6 @@
 // utilities
 const {
     getToken,
-    decodeToken,
     sendSuccess,
     sendError,
     sendUnauthorizedError,
