@@ -2,7 +2,7 @@
 const { Department } = require('@models');
 const { Op } = require('sequelize');
 
-// utility functions
+// validator functions
 const {
     validateDepartmentFields,
     validateListDepartmentsParams,
