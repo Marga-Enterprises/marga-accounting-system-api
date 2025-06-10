@@ -1,6 +1,3 @@
-// models
-// const { User } = require('@models');
-
 //utilities
 const { 
     getToken, 
@@ -11,10 +8,7 @@ const {
 } = require('@utils/methods');
 
 // services
-const { createUserService, loginService } = require('@services/authServices');
-
-// redis
-const redisClient = require('@config/redis');
+const { createUserService, loginService } = require('@services/auth');
 
 
 // Login function
@@ -22,17 +16,12 @@ exports.login = async (req, res) => {
     // check if the user is already logged in
     const token = getToken(req.headers);
     if (token) return sendError(res, '', 'You are already logged in.');
-    
-    // request body data
-    const { user_username, user_password } = req.body;
 
     try {
-        const data = {
-            user_username,
-            user_password
-        };
+        // call the service to login the user
+        const result = await loginService(req.body);
 
-        const result = await loginService(data);
+        // if login is successful, send the token in the response
         return sendSuccess(res, result , 'Login successful.');
     } catch (error) {
         return sendError(res, '', error.message, error.status);
@@ -65,3 +54,5 @@ exports.create = async (req, res) => {
         return sendError(res, '', error.message, error.status );
     }
 };
+
+
