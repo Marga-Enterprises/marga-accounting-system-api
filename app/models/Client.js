@@ -34,7 +34,7 @@ module.exports = (sequelize, DataTypes) => {
     // Associations
     Client.associate = (models) => {
         Client.hasMany(models.ClientBranch, {
-            foreignKey: 'branch_client_id',
+            foreignKey: 'client_branch_client_id',
             as: 'branches',
             onUpdate: 'CASCADE',
             onDelete: 'RESTRICT',
