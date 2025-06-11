@@ -61,7 +61,7 @@ module.exports = (sequelize, DataTypes) => {
     // Associations
     ClientBranch.associate = (models) => {
         ClientBranch.belongsTo(models.Client, {
-            foreignKey: 'branch_client_id',
+            foreignKey: 'client_branch_client_id',
             as: 'client',
             onUpdate: 'CASCADE',
             onDelete: 'RESTRICT',
