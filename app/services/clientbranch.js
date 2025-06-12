@@ -89,13 +89,19 @@ exports.getAllClientBranchesService = async (query) => {
         return JSON.parse(cachedData);
     }
 
-    // build the where clause for search functionality
-    const whereClause = search ? {
-        client_branch_name: {
+    // where clause for filtering
+    let whereClause = {};
+
+    if (search) {
+        whereClause.client_branch_name = {
             [Op.like]: `%${search}%`,
-        },
-        client_branch_client_id: clientId ? clientId : undefined
-    } : {};
+        };
+    }
+
+    if (clientId) {
+        whereClause.client_branch_client_id = clientId;
+    }
+
 
     // fetch client branches with pagination and search
     const { count, rows } = await ClientBranch.findAndCountAll({
