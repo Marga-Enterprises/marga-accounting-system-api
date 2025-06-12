@@ -82,19 +82,7 @@ exports.getAllClientsService = async (query) => {
     const { count, rows } = await Client.findAndCountAll({
         where: whereClause,
         offset,
-        limit,
-        include: [
-            {
-                model: ClientBranch,
-                as: 'branches',
-                required: false, // include branches if they exist
-            },
-            {
-                model: ClientDepartment,
-                as: 'departments',
-                required: false, // include departments if they exist
-            }
-        ]
+        limit
     });
 
     // calculate total pages
