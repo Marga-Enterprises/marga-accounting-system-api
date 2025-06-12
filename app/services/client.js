@@ -105,7 +105,7 @@ exports.getAllClientsService = async (query) => {
         pageIndex,
         pageSize,
         totalPages,
-        totalItems: count,
+        totalRecords: count,
         clients: rows
     }
 

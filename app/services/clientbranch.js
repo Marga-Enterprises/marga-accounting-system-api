@@ -110,7 +110,7 @@ exports.getAllClientBranchesService = async (query) => {
 
     // prepare the response object
     const response = {
-        totalItems: count,
+        totalRecords: count,
         totalPages,
         currentPage: pageIndex,
         pageSize,
