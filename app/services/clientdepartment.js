@@ -114,7 +114,7 @@ exports.getAllClientDepartmentsService = async (query) => {
     const response = {
         totalRecords: count,
         totalPages,
-        currentPage: pageIndex,
+        pageIndex,
         pageSize,
         departments: rows
     };
