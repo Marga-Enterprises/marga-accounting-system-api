@@ -91,13 +91,18 @@ exports.getAllClientDepartmentsService = async (query) => {
         return JSON.parse(cachedClientDepartments);
     }
 
-    // build the where clause for search functionality
-    const whereClause = search ? {
-        client_department_name: {
+    // where clause for filtering
+    let whereClause = {};
+
+    if (search) {
+        whereClause.client_department_name = {
             [Op.like]: `%${search}%`,
-        },
-        client_department_client_id: clientId ? clientId : undefined
-    } : {};
+        };
+    }
+
+    if (clientId) {
+        whereClause.client_department_client_id = clientId;
+    }
 
     // fetch client departments with pagination and search
     const { count, rows } = await ClientDepartment.findAndCountAll({
