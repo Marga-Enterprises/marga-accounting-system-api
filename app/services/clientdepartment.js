@@ -116,7 +116,7 @@ exports.getAllClientDepartmentsService = async (query) => {
         totalPages,
         currentPage: pageIndex,
         pageSize,
-        items: rows
+        departments: rows
     };
 
     // cache the result in Redis

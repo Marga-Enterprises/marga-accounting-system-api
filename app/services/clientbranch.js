@@ -114,7 +114,7 @@ exports.getAllClientBranchesService = async (query) => {
         totalPages,
         currentPage: pageIndex,
         pageSize,
-        items: rows
+        branches: rows
     };
 
     // cache the result in Redis
