@@ -152,3 +152,57 @@ exports.getClientBranchByIdService = async (id) => {
     return clientBranch;
 };
 
+
+// Update client branch by ID service
+exports.updateClientBranchService = async (id, data) => {
+    // validate the client branch ID
+    validateClientBranchId(id);
+
+    // validate the input data
+    validateClientBranchFields(data);
+
+    // check if the client branch exists
+    const clientBranch = await ClientBranch.findByPk(id);
+    if (!clientBranch) {
+        const error = new Error('Client Branch not found.');
+        error.status = 404;
+        throw error;
+    }
+
+    // check if the client ID is valid
+    validateClientId(data.client_branch_client_id);
+
+    // update the client branch data
+    await clientBranch.update(data);
+
+    // clear the client branches cache
+    await clearClientBranchesCache();
+
+    // return the updated client branch data
+    return clientBranch;
+};
+
+
+// Delete client branch by ID service
+exports.deleteClientBranchService = async (id) => {
+    // validate the client branch ID
+    validateClientBranchId(id);
+
+    // check if the client branch exists
+    const clientBranch = await ClientBranch.findByPk(id);
+    if (!clientBranch) {
+        const error = new Error('Client Branch not found.');
+        error.status = 404;
+        throw error;
+    }
+
+    // delete the client branch
+    await clientBranch.destroy();
+
+    // clear the client branches cache
+    await clearClientBranchesCache();
+
+    // return a success message
+    return { message: 'Client Branch deleted successfully.' };
+};
+
