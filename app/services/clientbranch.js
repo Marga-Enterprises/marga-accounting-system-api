@@ -112,7 +112,7 @@ exports.getAllClientBranchesService = async (query) => {
     const response = {
         totalRecords: count,
         totalPages,
-        currentPage: pageIndex,
+        pageIndex,
         pageSize,
         branches: rows
     };
