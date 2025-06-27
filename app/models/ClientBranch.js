@@ -65,7 +65,14 @@ module.exports = (sequelize, DataTypes) => {
             onUpdate: 'CASCADE',
             onDelete: 'RESTRICT',
         });
+
+        ClientBranch.hasMany(models.Billing, {
+            foreignKey: 'billing_branch_id',
+            as: 'billings',
+            onUpdate: 'CASCADE',
+            onDelete: 'RESTRICT',
+        });
     };
 
     return ClientBranch;
-}
+};
