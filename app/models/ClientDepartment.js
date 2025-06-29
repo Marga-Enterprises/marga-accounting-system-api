@@ -9,7 +9,6 @@ module.exports = (sequelize, DataTypes) => {
         client_department_name: {
             type: DataTypes.STRING(255),
             allowNull: false,
-            unique: true,
         },
         client_department_client_id: {
             type: DataTypes.INTEGER(11),
