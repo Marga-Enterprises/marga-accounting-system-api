@@ -39,9 +39,17 @@ module.exports = (sequelize, DataTypes) => {
             onUpdate: 'CASCADE',
             onDelete: 'RESTRICT',
         });
+
         Client.hasMany(models.ClientDepartment, {
             foreignKey: 'client_department_client_id',
             as: 'departments',
+            onUpdate: 'CASCADE',
+            onDelete: 'RESTRICT',
+        });
+
+        Client.hasMany(models.Billing, {
+            foreignKey: 'billing_client_id',
+            as: 'billings',
             onUpdate: 'CASCADE',
             onDelete: 'RESTRICT',
         });
