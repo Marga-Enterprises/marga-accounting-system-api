@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 // Import the client controller
-const clientController = require('../controllers/client');
+const clientController = require('@controllers/client');
 
 // Define routes for client operations
 router.post('/', clientController.create);

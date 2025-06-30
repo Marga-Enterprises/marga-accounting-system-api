@@ -136,3 +136,37 @@ exports.clearClientBranchesCache = async (branchId) => {
     console.error("❌ Error clearing client branches cache:", error);
   }
 };
+
+
+// clear billing cache
+exports.clearBillingsCache = async (billingId) => {
+  try {
+    console.log("🧹 Clearing billing cache...");
+
+    // Define the key patterns for billing
+    const pattern = `billings:page*`;
+    const filteredPattern = `billings:page*:search*:month*year*`;
+    
+    // If a billingId is provided, create a specific key pattern for that billing
+    const billingKeys = billingId ? await redisClient.keys(`billing*:${billingId}`) : [];
+
+    // Fetch all keys matching the patterns
+    const allPaginatedKeys = await redisClient.keys(pattern);
+    const allFilteredKeys = await redisClient.keys(filteredPattern);
+
+    // Combine all keys into a unique set
+    const allKeys = [...new Set([...allPaginatedKeys, ...allFilteredKeys, ...billingKeys])];
+
+    // If there are any keys to delete, proceed with deletion
+    if (allKeys.length > 0) {
+      await redisClient.del(allKeys);
+      console.log(`🗑️ Cleared ${allKeys.length} billing cache entries.`);
+    } else {
+      console.log("ℹ️ No matching billing cache keys found.");
+    }
+
+    console.log("✅ Billing cache cleared.");
+  } catch (error) {
+    console.error("❌ Error clearing billing cache:", error);
+  }
+};

@@ -61,13 +61,11 @@ exports.getAllDepartmentsService = async (query) => {
     }
     
     // where for filtering departments
-    const where = search
-    ? {
+    const where = search ? {
         department_name: {
             [Op.like]: `%${search}%`
         }
-        }
-    : {};
+    }: {};
 
     // retrieve departments from the database with pagination and filtering
     const { count, rows } = await Department.findAndCountAll({

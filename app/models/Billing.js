@@ -43,6 +43,14 @@ module.exports = (sequelize, DataTypes) => {
             allowNull: false,
             defaultValue: 0.00,
         },
+        billing_month:{
+            type: DataTypes.STRING(20),
+            allowNull: false,
+        },
+        billing_year:{
+            type: DataTypes.STRING(20),
+            allowNull: false,
+        },
         billing_type: {
             type: DataTypes.STRING(50),
             allowNull: false,
