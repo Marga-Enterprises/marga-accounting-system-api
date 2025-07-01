@@ -166,7 +166,16 @@ exports.getBillingByIdService = async (billingId) => {
     };
 
     // fetch the billing from the database
-    const billing = await Billing.findByPk(billingId);
+    const billing = await Billing.findByPk(billingId, {
+        include: [
+            {
+                model: ClientDepartment,
+                as: 'department',
+                required: false,
+                attributes: ['client_department_name']
+            }
+        ]
+    });
 
     // if billing not found, throw a 404 error
     if (!billing) {
