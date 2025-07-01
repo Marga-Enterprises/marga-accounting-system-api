@@ -85,7 +85,7 @@ exports.getAllBillingsService = async (query) => {
     validateListBillingsParams(query);
 
     // get the query parameters
-    let { pageIndex, pageSize, billing_month, billing_year, search } = query;
+    let { pageIndex, pageSize, billingMonth, billingYear, search } = query;
 
     // set default values for pagination
     pageIndex = parseInt(pageIndex);
@@ -96,7 +96,7 @@ exports.getAllBillingsService = async (query) => {
     const limit = pageSize;
 
     // check if the billings are cached in Redis
-    const cacheKey = `billings:page:${pageIndex}:size:${pageSize}:search:${search || ''}:month:${billing_month}:year:${billing_year}`;
+    const cacheKey = `billings:page:${pageIndex}:size:${pageSize}:search:${search || ''}:month:${billingMonth}:year:${billingYear}`;
     const cachedBillings = await redisClient.get(cacheKey);
 
     if (cachedBillings) {
@@ -112,9 +112,10 @@ exports.getAllBillingsService = async (query) => {
         }
         }
     : {
-        ...(billing_month && { billing_month }),
-        ...(billing_year && { billing_year })
+        ...(billingMonth ? { billing_month: billingMonth } : {}),
+        ...(billingYear ? { billing_year: billingYear } : {})
     };
+
 
     // fetch the billings from the database
     const { count, rows } = await Billing.findAndCountAll({

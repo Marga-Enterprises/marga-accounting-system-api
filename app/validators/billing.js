@@ -40,13 +40,13 @@ exports.validateBillingId = (id) => {
 
 // validateListBillingsParams function to validate the query parameters for listing billings
 exports.validateListBillingsParams = (query) => {
-    const { pageIndex, pageSize, billing_month, billing_year } = query;
+    const { pageIndex, pageSize, billingMonth, billingYear } = query;
 
     if (
         !pageIndex ||
         !pageSize ||
-        !billing_month ||
-        !billing_year ||
+        !billingMonth ||
+        !billingYear ||
         isNaN(pageIndex) ||
         isNaN(pageSize) ||
         pageIndex < 0 ||
