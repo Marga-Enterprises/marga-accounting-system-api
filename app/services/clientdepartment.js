@@ -186,7 +186,12 @@ exports.getClientByNameService = async (name) => {
             client_department_name: {
                 [Op.like]: `%${name}%`
             }
-        }
+        },
+        include: [{
+            model: Client,
+            as: 'client',
+            attributes: ['client_name', 'client_tin', 'client_business_style'] // include client details
+        }]
     });
 
     // if not found, throw a 404 not found error
