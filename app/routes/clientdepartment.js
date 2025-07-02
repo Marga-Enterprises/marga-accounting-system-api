@@ -7,6 +7,7 @@ const clientDepartmentController = require('@controllers/clientdepartment');
 // Define routes for client department operations
 router.post('/', clientDepartmentController.create);
 router.get('/', clientDepartmentController.list);
+router.get('/name', clientDepartmentController.getByName);
 router.get('/:clientDepartmentId', clientDepartmentController.getById);
 router.put('/:clientDepartmentId', clientDepartmentController.update);
 router.delete('/:clientDepartmentId', clientDepartmentController.delete);

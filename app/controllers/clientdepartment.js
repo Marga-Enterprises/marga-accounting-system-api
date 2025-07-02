@@ -11,6 +11,7 @@ const {
     createClientDepartmentService,
     getAllClientDepartmentsService,
     getClientDepartmentByIdService,
+    getClientByNameService,
     updateClientDepartmentService,
     deleteClientDepartmentService
 } = require('@services/clientdepartment');
@@ -61,6 +62,24 @@ exports.getById = async (req, res) => {
     try {
         // call the service to get client department by ID
         const result = await getClientDepartmentByIdService(req.params.clientDepartmentId);
+
+        // send response with the client department data
+        return sendSuccess(res, result, 'Client Department retrieved successfully.');
+    } catch (error) {
+        return sendError(res, '', error.message, error.status);
+    }
+};
+
+
+// Get client department by name
+exports.getByName = async (req, res) => {
+    // check if the user is logged in
+    const token = getToken(req.headers);
+    if (!token) return sendUnauthorizedError(res, '', 'You are not logged in.');
+
+    try {
+        // call the service to get client department by name
+        const result = await getClientByNameService(req.query.clientDepartmentName);
 
         // send response with the client department data
         return sendSuccess(res, result, 'Client Department retrieved successfully.');

@@ -45,6 +45,15 @@ exports.validateListClientDepartmentsParams = (query) => {
 };
 
 
+// validateClientDepartmentName function to validate the client department name
+exports.validateClientDepartmentName = (name) => {
+    if (!name || typeof name !== 'string' || name.trim() === '') {
+        throw new Error('Invalid or missing client department name.');
+    }
+
+    return true;
+};
+
 
 // validateClientId function to validate the parent client ID
 exports.validateClientId = (id) => {
