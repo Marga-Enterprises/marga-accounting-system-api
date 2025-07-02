@@ -11,6 +11,14 @@ module.exports = (sequelize, DataTypes) => {
             allowNull: false,
             unique: true,
         },
+        client_tin: {
+            type: DataTypes.STRING(255),
+            allowNull: true,
+        },
+        client_business_style: {
+            type: DataTypes.STRING(255),
+            allowNull: true,
+        },
         client_status: {
             type: DataTypes.ENUM('active', 'inactive', 'pending'),
             allowNull: false,
