@@ -171,6 +171,9 @@ exports.getClientByNameService = async (name) => {
     // validate the client department name
     validateClientDepartmentName(name);
 
+    // trim and clean the name
+    const cleanedName = name.trim().replace(/\s+/g, ' ');
+
     // check if the client department is cached in Redis
     const cacheKey = `client_department:${name}`;
     const cachedClientDepartment = await redisClient.get(cacheKey);
@@ -184,7 +187,7 @@ exports.getClientByNameService = async (name) => {
     const clientDepartment = await ClientDepartment.findOne({
         where: {
             client_department_name: {
-                [Op.like]: `%${name}%`
+                [Op.like]: `%${cleanedName}%`
             }
         },
         include: [{
