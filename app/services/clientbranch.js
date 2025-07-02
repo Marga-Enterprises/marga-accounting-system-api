@@ -138,6 +138,15 @@ exports.getClientBranchByIdService = async (id) => {
     // validate the client branch ID
     validateClientBranchId(id);
 
+    // check if the client branch is cached in Redis
+    const cacheKey = `client_branch:${id}`;
+    const cachedClientBranch = await redisClient.get(cacheKey);
+
+    if (cachedClientBranch) {
+        // return cached client branch if available
+        return JSON.parse(cachedClientBranch);
+    }
+
     // fetch the client branch by ID
     const clientBranch = await ClientBranch.findByPk(id);
 
@@ -147,6 +156,9 @@ exports.getClientBranchByIdService = async (id) => {
         error.status = 404;
         throw error;
     }
+
+    // cache the client branch in Redis
+    await redisClient.set(cacheKey, JSON.stringify(clientBranch), 'EX', 3600); // cache for 1 hour
 
     // return the found client branch data
     return clientBranch;

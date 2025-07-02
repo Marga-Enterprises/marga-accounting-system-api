@@ -7,6 +7,7 @@ const {
     validateClientDepartmentFields,
     validateListClientDepartmentsParams,
     validateClientId,
+    validateClientDepartmentName,
     validateClientDepartmentId,
 } = require('@validators/clientdepartment');
 
@@ -139,6 +140,15 @@ exports.getClientDepartmentByIdService = async (id) => {
     // validate the client department ID
     validateClientDepartmentId(id);
 
+    // check if the client department is cached in Redis
+    const cacheKey = `client_department:${id}`;
+    const cachedClientDepartment = await redisClient.get(cacheKey);
+
+    if (cachedClientDepartment) {
+        // return cached client department if available
+        return JSON.parse(cachedClientDepartment);
+    }
+
     // fetch the client department by ID
     const clientDepartment = await ClientDepartment.findByPk(id);
 
@@ -149,6 +159,46 @@ exports.getClientDepartmentByIdService = async (id) => {
         throw error;
     }
 
+    // cache the client department in Redis
+    await redisClient.set(cacheKey, JSON.stringify(clientDepartment), 'EX', 3600); // cache for 1 hour
+
+    return clientDepartment;
+};
+
+
+// Get client department by name service
+exports.getClientByNameService = async (name) => {
+    // validate the client department name
+    validateClientDepartmentName(name);
+
+    // check if the client department is cached in Redis
+    const cacheKey = `client_department:${name}`;
+    const cachedClientDepartment = await redisClient.get(cacheKey);
+
+    if (cachedClientDepartment) {
+        // return cached client department if available
+        return JSON.parse(cachedClientDepartment);
+    }
+
+    // fetch the client department by name
+    const clientDepartment = await ClientDepartment.findOne({
+        where: {
+            client_department_name: {
+                [Op.like]: `%${name}%`
+            }
+        }
+    });
+
+    // if not found, throw a 404 not found error
+    if (!clientDepartment) {
+        const error = new Error('Client Department not found.');
+        error.status = 404;
+        throw error;
+    }
+
+    // cache the client department in Redis
+    await redisClient.set(cacheKey, JSON.stringify(clientDepartment), 'EX', 3600); // cache for 1 hour
+    
     return clientDepartment;
 };
 
