@@ -19,6 +19,10 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.STRING(255),
             allowNull: true,
         },
+        client_billing_address: {
+            type: DataTypes.STRING(255),
+            allowNull: true,
+        },
         client_status: {
             type: DataTypes.ENUM('active', 'inactive', 'pending'),
             allowNull: false,
