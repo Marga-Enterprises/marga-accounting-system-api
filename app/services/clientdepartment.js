@@ -193,7 +193,7 @@ exports.getClientByNameService = async (name) => {
         include: [{
             model: Client,
             as: 'client',
-            attributes: ['client_name', 'client_tin', 'client_business_style'] // include client details
+            attributes: ['client_name', 'client_tin', 'client_business_style', 'client_billing_address']
         }]
     });
 
