@@ -43,11 +43,11 @@ module.exports = (sequelize, DataTypes) => {
             allowNull: false,
             defaultValue: 0.00,
         },
-        billing_month:{
+        billing_month: {
             type: DataTypes.STRING(20),
             allowNull: false,
         },
-        billing_year:{
+        billing_year: {
             type: DataTypes.STRING(20),
             allowNull: false,
         },
@@ -64,7 +64,8 @@ module.exports = (sequelize, DataTypes) => {
         underscored: true,
         indexes: [
             {
-                name: 'idx_billing_invoice_number',
+                unique: true,
+                name: 'unique_billing_invoice_number',
                 fields: ['billing_invoice_number'],
             },
         ],
@@ -91,10 +92,9 @@ module.exports = (sequelize, DataTypes) => {
             onDelete: 'RESTRICT',
         });
 
-        // 👇 This line enables billing.hasMany(cancelledInvoices)
+        // ✅ Now using billing_id as the FK in CancelledInvoice
         Billing.hasMany(models.CancelledInvoice, {
-            foreignKey: 'cancelled_invoice_number',
-            sourceKey: 'billing_invoice_number', // since invoice number is used, not billing.id
+            foreignKey: 'billing_id',
             as: 'cancelled_invoices',
             onUpdate: 'CASCADE',
             onDelete: 'SET NULL',
