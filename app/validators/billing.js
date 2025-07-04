@@ -1,7 +1,8 @@
 // validateBillingFields function to validate billing fields
 exports.validateBillingFields = (data) => {
     const {
-        billing_branch_dept_name,
+        billing_client_id,
+        billing_department_id,
         billing_invoice_number,
         billing_amount,
         billing_total_amount,
@@ -13,7 +14,8 @@ exports.validateBillingFields = (data) => {
     } = data;
 
     if (
-        !billing_branch_dept_name ||
+        !billing_client_id ||
+        !billing_department_id ||
         !billing_invoice_number || 
         !billing_amount || 
         !billing_total_amount || 

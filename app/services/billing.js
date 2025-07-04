@@ -19,7 +19,8 @@ const redisClient = require('@config/redis');
 // service to create a new billing
 exports.createBillingService = async (data) => {
     const {
-        billing_branch_dept_name,
+        billing_client_id,
+        billing_department_id,
         billing_invoice_number,
         billing_amount,
         billing_total_amount,
@@ -44,11 +45,7 @@ exports.createBillingService = async (data) => {
     };
 
     // check if the client department exists
-    const clientDepartment = await ClientDepartment.findOne({
-        where: {
-            client_department_name: billing_branch_dept_name,
-        },
-    });
+    const clientDepartment = await ClientDepartment.findByPk(billing_department_id);
 
     if (!clientDepartment) {
         const error = new Error('Client department not found.');
@@ -58,7 +55,6 @@ exports.createBillingService = async (data) => {
 
     // create a new billing instance
     const newBilling = await Billing.create({
-        billing_branch_dept_name,
         billing_invoice_number,
         billing_amount,
         billing_total_amount,
@@ -67,8 +63,8 @@ exports.createBillingService = async (data) => {
         billing_month,
         billing_year,
         billing_type,
-        billing_department_id: clientDepartment.id,
-        billing_client_id: clientDepartment.client_department_client_id,
+        billing_department_id,
+        billing_client_id,
     });
 
     // clear the billing cache
