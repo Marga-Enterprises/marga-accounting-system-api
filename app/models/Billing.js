@@ -90,6 +90,15 @@ module.exports = (sequelize, DataTypes) => {
             onUpdate: 'CASCADE',
             onDelete: 'RESTRICT',
         });
+
+        // 👇 This line enables billing.hasMany(cancelledInvoices)
+        Billing.hasMany(models.CancelledInvoice, {
+            foreignKey: 'cancelled_invoice_number',
+            sourceKey: 'billing_invoice_number', // since invoice number is used, not billing.id
+            as: 'cancelled_invoices',
+            onUpdate: 'CASCADE',
+            onDelete: 'SET NULL',
+        });
     };
 
     return Billing;

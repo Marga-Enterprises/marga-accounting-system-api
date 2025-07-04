@@ -237,3 +237,39 @@ exports.deleteBillingService = async (billingId) => {
 
     return { message: 'Billing deleted successfully.' };
 };
+
+
+// service to cancel billing by ID
+exports.cancelBillingService = async (billingId, data) => {
+    // validate the billing ID
+    validateBillingId(billingId);
+
+    // validate the input data
+    const { cancelled_invoice_number, cancelled_invoice_amount, cancelled_invoice_remarks } = data;
+    if (!cancelled_invoice_number || !cancelled_invoice_amount || !cancelled_invoice_remarks) {
+        const error = new Error('Cancelled invoice fields are required.');
+        error.status = 400;
+        throw error;
+    };
+
+    // check if the billing exists
+    const billing = await Billing.findByPk(billingId);
+
+    if (!billing) {
+        const error = new Error('Billing not found.');
+        error.status = 404;
+        throw error;
+    };
+
+    // create a new cancelled invoice record
+    const cancelledInvoice = await billing.createCancelledInvoice({
+        cancelled_invoice_number,
+        cancelled_invoice_amount,
+        cancelled_invoice_remarks,
+    });
+
+    // clear the billing cache
+    await clearBillingsCache(billingId);
+
+    return cancelledInvoice;
+};
