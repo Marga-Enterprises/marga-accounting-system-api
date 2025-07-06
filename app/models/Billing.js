@@ -57,7 +57,6 @@ module.exports = (sequelize, DataTypes) => {
         },
     }, {
         tableName: 'tbl_billings',
-        modelName: 'Billing',
         sequelize,
         timestamps: true,
         paranoid: true,
@@ -71,7 +70,6 @@ module.exports = (sequelize, DataTypes) => {
         ],
     });
 
-    // Associations
     Billing.associate = (models) => {
         Billing.belongsTo(models.Client, {
             foreignKey: 'billing_client_id',
@@ -92,9 +90,8 @@ module.exports = (sequelize, DataTypes) => {
             onDelete: 'RESTRICT',
         });
 
-        // ✅ Now using billing_id as the FK in CancelledInvoice
         Billing.hasMany(models.CancelledInvoice, {
-            foreignKey: 'billing_id',
+            foreignKey: 'cancelled_invoice_billing_id',
             as: 'cancelled_invoices',
             onUpdate: 'CASCADE',
             onDelete: 'SET NULL',

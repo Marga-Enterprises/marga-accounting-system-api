@@ -9,7 +9,6 @@ module.exports = (sequelize, DataTypes) => {
         cancelled_invoice_number: {
             type: DataTypes.STRING(100),
             allowNull: false,
-            unique: true,
         },
         cancelled_invoice_amount: {
             type: DataTypes.DECIMAL(10, 2),
@@ -21,11 +20,10 @@ module.exports = (sequelize, DataTypes) => {
         },
         cancelled_invoice_billing_id: {
             type: DataTypes.INTEGER(11),
-            allowNull: false,
+            allowNull: true, // ✅ must be true to match SET NULL
         },
     }, {
         tableName: 'tbl_cancelled_invoices',
-        modelName: 'CancelledInvoice',
         sequelize,
         timestamps: true,
         paranoid: true,
@@ -36,19 +34,18 @@ module.exports = (sequelize, DataTypes) => {
                 fields: ['cancelled_invoice_number'],
             },
             {
-                name: 'idx_billing_id',
-                fields: ['billing_id'],
+                name: 'idx_cancelled_invoice_billing_id',
+                fields: ['cancelled_invoice_billing_id'],
             },
         ],
     });
 
-    // Associations
     CancelledInvoice.associate = (models) => {
         CancelledInvoice.belongsTo(models.Billing, {
-            foreignKey: 'billing_id',
+            foreignKey: 'cancelled_invoice_billing_id',
             as: 'billing',
             onUpdate: 'CASCADE',
-            onDelete: 'SET NULL',
+            onDelete: 'SET NULL', // ✅ matches allowNull: true
         });
     };
 

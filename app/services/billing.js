@@ -1,5 +1,5 @@
 // models and sequelize imports
-const { Billing, ClientDepartment } = require('@models');
+const { Billing, ClientDepartment, CancelledInvoice } = require('@models');
 const { Op } = require('sequelize');
 
 // validator functions
@@ -80,69 +80,65 @@ exports.getAllBillingsService = async (query) => {
     // validate the query parameters
     validateListBillingsParams(query);
 
-    // get the query parameters
     let { pageIndex, pageSize, billingMonth, billingYear, search } = query;
 
-    // set default values for pagination
     pageIndex = parseInt(pageIndex);
     pageSize = parseInt(pageSize);
-
-    // set the offset for pagination
     const offset = (pageIndex - 1) * pageSize;
     const limit = pageSize;
 
-    // check if the billings are cached in Redis
+    // cache key
     const cacheKey = `billings:page:${pageIndex}:size:${pageSize}:search:${search || ''}:month:${billingMonth}:year:${billingYear}`;
     const cachedBillings = await redisClient.get(cacheKey);
-
     if (cachedBillings) {
-        // return cached billings if available
         return JSON.parse(cachedBillings);
-    };
+    }
 
-    // build the where clause for searching
-    const whereClause = search
-    ? {
-        billing_invoice_number: {
-            [Op.like]: `%${search}%`
-        }
-        }
-    : {
+    // Get all cancelled invoice numbers
+    const cancelledInvoices = await CancelledInvoice.findAll({
+        attributes: ['cancelled_invoice_number'],
+    });
+
+    const cancelledNumbers = cancelledInvoices.map(ci => ci.cancelled_invoice_number);
+
+    // build the where clause
+    const whereClause = {
         ...(billingMonth ? { billing_month: billingMonth } : {}),
-        ...(billingYear ? { billing_year: billingYear } : {})
+        ...(billingYear ? { billing_year: billingYear } : {}),
+        ...(search
+            ? { billing_invoice_number: { [Op.like]: `%${search}%` } }
+            : {}),
+        billing_invoice_number: {
+            [Op.notIn]: cancelledNumbers, // 🚫 exclude cancelled
+        },
     };
 
-
-    // fetch the billings from the database
     const { count, rows } = await Billing.findAndCountAll({
         where: whereClause,
         offset,
+        limit,
         include: [
             {
                 model: ClientDepartment,
                 as: 'department',
                 required: false,
-                attributes: ['client_department_name']
-            }
+                attributes: ['client_department_name'],
+            },
         ],
-        limit,
         order: [['createdAt', 'DESC']],
     });
 
-    // calculate total pages
     const totalPages = Math.ceil(count / pageSize);
 
-    // prepare the response object
     const response = {
         pageIndex,
         pageSize,
         totalPages,
         totalRecords: count,
-        billings: rows
+        billings: rows,
     };
 
-    // cache the response in Redis
-    await redisClient.set(cacheKey, JSON.stringify(response), 'EX', 3600); // cache for 1 hour
+    await redisClient.set(cacheKey, JSON.stringify(response), 'EX', 3600);
 
     return response;
 };
@@ -244,14 +240,6 @@ exports.cancelBillingService = async (billingId, data) => {
     // validate the billing ID
     validateBillingId(billingId);
 
-    // validate the input data
-    const { cancelled_invoice_number, cancelled_invoice_amount, cancelled_invoice_remarks } = data;
-    if (!cancelled_invoice_number || !cancelled_invoice_amount || !cancelled_invoice_remarks) {
-        const error = new Error('Cancelled invoice fields are required.');
-        error.status = 400;
-        throw error;
-    };
-
     // check if the billing exists
     const billing = await Billing.findByPk(billingId);
 
@@ -262,11 +250,15 @@ exports.cancelBillingService = async (billingId, data) => {
     };
 
     // create a new cancelled invoice record
-    const cancelledInvoice = await billing.createCancelledInvoice({
-        cancelled_invoice_number,
-        cancelled_invoice_amount,
-        cancelled_invoice_remarks,
+    const cancelledInvoice = await CancelledInvoice.create({
+        cancelled_invoice_number: billing.billing_invoice_number,
+        cancelled_invoice_amount: billing.billing_total_amount,
+        cancelled_invoice_remarks: data.remarks || 'Cancelled by user',
+        cancelled_invoice_billing_id: billing.id
     });
+
+    // delete the original billing record
+    // await billing.destroy();
 
     // clear the billing cache
     await clearBillingsCache(billingId);
