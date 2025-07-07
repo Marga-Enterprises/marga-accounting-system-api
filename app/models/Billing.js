@@ -55,6 +55,11 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.STRING(50),
             allowNull: false,
         },
+        billing_is_cancelled: {
+            type: DataTypes.BOOLEAN,
+            allowNull: false,
+            defaultValue: false,
+        },
     }, {
         tableName: 'tbl_billings',
         sequelize,

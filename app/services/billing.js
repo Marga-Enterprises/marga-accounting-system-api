@@ -1,6 +1,6 @@
 // models and sequelize imports
 const { Billing, ClientDepartment, CancelledInvoice } = require('@models');
-const { Op } = require('sequelize');
+const { Op, Sequelize } = require('sequelize');
 
 // validator functions
 const {
@@ -31,29 +31,47 @@ exports.createBillingService = async (data) => {
         billing_type
     } = data;
 
-    // validate the input data
+    // validate input
     validateBillingFields(data);
 
-    // check if a billing with the same invoice number already exists
+    // check for existing billing by invoice number
     const existingBilling = await Billing.findOne({ where: { billing_invoice_number } });
 
-    // if Billing Invoice Number already exists, throw a 409 conflict error
     if (existingBilling) {
-        const error = new Error('Billing with this invoice number already exists.');
-        error.status = 409;
-        throw error;
-    };
+        if (existingBilling.billing_is_cancelled) {
+            // If it exists and is cancelled, update and "revive" it
+            await existingBilling.update({
+                billing_client_id,
+                billing_department_id,
+                billing_amount,
+                billing_total_amount,
+                billing_vat_amount,
+                billing_discount,
+                billing_month,
+                billing_year,
+                billing_type,
+                billing_is_cancelled: false,
+            });
 
-    // check if the client department exists
+            await clearBillingsCache(existingBilling.id);
+            return existingBilling;
+        } else {
+            // Exists and is active — conflict
+            const error = new Error('Billing with this invoice number already exists.');
+            error.status = 409;
+            throw error;
+        }
+    }
+
+    // client department check
     const clientDepartment = await ClientDepartment.findByPk(billing_department_id);
-
     if (!clientDepartment) {
         const error = new Error('Client department not found.');
         error.status = 404;
         throw error;
-    };
+    }
 
-    // create a new billing instance
+    // create new billing
     const newBilling = await Billing.create({
         billing_invoice_number,
         billing_amount,
@@ -67,17 +85,15 @@ exports.createBillingService = async (data) => {
         billing_client_id,
     });
 
-    // clear the billing cache
     await clearBillingsCache();
 
-    // return the saved billing data
     return newBilling;
 };
 
 
 // service to get all billings
 exports.getAllBillingsService = async (query) => {
-    // validate the query parameters
+    // validate query params
     validateListBillingsParams(query);
 
     let { pageIndex, pageSize, billingMonth, billingYear, search } = query;
@@ -87,31 +103,31 @@ exports.getAllBillingsService = async (query) => {
     const offset = (pageIndex - 1) * pageSize;
     const limit = pageSize;
 
-    // cache key
+    // create cache key
     const cacheKey = `billings:page:${pageIndex}:size:${pageSize}:search:${search || ''}:month:${billingMonth}:year:${billingYear}`;
     const cachedBillings = await redisClient.get(cacheKey);
     if (cachedBillings) {
         return JSON.parse(cachedBillings);
     }
 
-    // Get all cancelled invoice numbers
-    const cancelledInvoices = await CancelledInvoice.findAll({
-        attributes: ['cancelled_invoice_number'],
-    });
-
-    const cancelledNumbers = cancelledInvoices.map(ci => ci.cancelled_invoice_number);
-
     // build the where clause
     const whereClause = {
+        billing_is_cancelled: false,
         ...(billingMonth ? { billing_month: billingMonth } : {}),
         ...(billingYear ? { billing_year: billingYear } : {}),
         ...(search
             ? { billing_invoice_number: { [Op.like]: `%${search}%` } }
             : {}),
-        billing_invoice_number: {
-            [Op.notIn]: cancelledNumbers, // 🚫 exclude cancelled
-        },
     };
+
+    // total for the month result
+    const totalForMonthResult = await Billing.findOne({
+        where: whereClause,
+        attributes: [
+            [Sequelize.fn('SUM', Sequelize.col('billing_total_amount')), 'total_billing_amount'],
+        ],
+        raw: true,
+    });
 
     const { count, rows } = await Billing.findAndCountAll({
         where: whereClause,
@@ -128,6 +144,8 @@ exports.getAllBillingsService = async (query) => {
         order: [['createdAt', 'DESC']],
     });
 
+
+    const totalBillingForMonth= parseFloat(totalForMonthResult.total_billing_amount || 0);
     const totalPages = Math.ceil(count / pageSize);
 
     const response = {
@@ -135,6 +153,7 @@ exports.getAllBillingsService = async (query) => {
         pageSize,
         totalPages,
         totalRecords: count,
+        totalBillingForMonth,
         billings: rows,
     };
 
