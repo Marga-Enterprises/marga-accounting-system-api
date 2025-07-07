@@ -12,7 +12,8 @@ const {
     getAllBillingsService, 
     getBillingByIdService, 
     updateBillingService, 
-    deleteBillingService
+    deleteBillingService,
+    cancelBillingService,
 } = require('@services/billing');
 
 
@@ -101,6 +102,24 @@ exports.delete = async (req, res) => {
 
         // send response with success message
         return sendSuccess(res, result, 'Billing deleted successfully.');
+    } catch (error) {
+        return sendError(res, '', error.message, error.status);
+    }
+};
+
+
+// cancel billing by ID
+exports.cancel = async (req, res) => {
+    // check if user is logged in
+    const token = getToken(req.headers);
+    if (!token) return sendUnauthorizedError(res, '', 'You are not logged in.');
+
+    try {
+        // call the service to cancel billing by ID
+        const result = await cancelBillingService(req.params.billingId, req.body);
+
+        // send response with the cancelled billing data
+        return sendSuccess(res, result, 'Billing cancelled successfully.');
     } catch (error) {
         return sendError(res, '', error.message, error.status);
     }

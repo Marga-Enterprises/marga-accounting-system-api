@@ -43,11 +43,11 @@ module.exports = (sequelize, DataTypes) => {
             allowNull: false,
             defaultValue: 0.00,
         },
-        billing_month:{
+        billing_month: {
             type: DataTypes.STRING(20),
             allowNull: false,
         },
-        billing_year:{
+        billing_year: {
             type: DataTypes.STRING(20),
             allowNull: false,
         },
@@ -55,22 +55,26 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.STRING(50),
             allowNull: false,
         },
+        billing_is_cancelled: {
+            type: DataTypes.BOOLEAN,
+            allowNull: false,
+            defaultValue: false,
+        },
     }, {
         tableName: 'tbl_billings',
-        modelName: 'Billing',
         sequelize,
         timestamps: true,
         paranoid: true,
         underscored: true,
         indexes: [
             {
-                name: 'idx_billing_invoice_number',
+                unique: true,
+                name: 'unique_billing_invoice_number',
                 fields: ['billing_invoice_number'],
             },
         ],
     });
 
-    // Associations
     Billing.associate = (models) => {
         Billing.belongsTo(models.Client, {
             foreignKey: 'billing_client_id',
@@ -89,6 +93,13 @@ module.exports = (sequelize, DataTypes) => {
             as: 'branch',
             onUpdate: 'CASCADE',
             onDelete: 'RESTRICT',
+        });
+
+        Billing.hasMany(models.CancelledInvoice, {
+            foreignKey: 'cancelled_invoice_billing_id',
+            as: 'cancelled_invoices',
+            onUpdate: 'CASCADE',
+            onDelete: 'SET NULL',
         });
     };
 

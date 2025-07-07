@@ -1,6 +1,6 @@
 // models and sequelize imports
-const { Billing, ClientDepartment } = require('@models');
-const { Op } = require('sequelize');
+const { Billing, ClientDepartment, CancelledInvoice } = require('@models');
+const { Op, Sequelize } = require('sequelize');
 
 // validator functions
 const {
@@ -31,29 +31,47 @@ exports.createBillingService = async (data) => {
         billing_type
     } = data;
 
-    // validate the input data
+    // validate input
     validateBillingFields(data);
 
-    // check if a billing with the same invoice number already exists
+    // check for existing billing by invoice number
     const existingBilling = await Billing.findOne({ where: { billing_invoice_number } });
 
-    // if Billing Invoice Number already exists, throw a 409 conflict error
     if (existingBilling) {
-        const error = new Error('Billing with this invoice number already exists.');
-        error.status = 409;
-        throw error;
-    };
+        if (existingBilling.billing_is_cancelled) {
+            // If it exists and is cancelled, update and "revive" it
+            await existingBilling.update({
+                billing_client_id,
+                billing_department_id,
+                billing_amount,
+                billing_total_amount,
+                billing_vat_amount,
+                billing_discount,
+                billing_month,
+                billing_year,
+                billing_type,
+                billing_is_cancelled: false,
+            });
 
-    // check if the client department exists
+            await clearBillingsCache(existingBilling.id);
+            return existingBilling;
+        } else {
+            // Exists and is active — conflict
+            const error = new Error('Billing with this invoice number already exists.');
+            error.status = 409;
+            throw error;
+        }
+    }
+
+    // client department check
     const clientDepartment = await ClientDepartment.findByPk(billing_department_id);
-
     if (!clientDepartment) {
         const error = new Error('Client department not found.');
         error.status = 404;
         throw error;
-    };
+    }
 
-    // create a new billing instance
+    // create new billing
     const newBilling = await Billing.create({
         billing_invoice_number,
         billing_amount,
@@ -67,82 +85,79 @@ exports.createBillingService = async (data) => {
         billing_client_id,
     });
 
-    // clear the billing cache
     await clearBillingsCache();
 
-    // return the saved billing data
     return newBilling;
 };
 
 
 // service to get all billings
 exports.getAllBillingsService = async (query) => {
-    // validate the query parameters
+    // validate query params
     validateListBillingsParams(query);
 
-    // get the query parameters
     let { pageIndex, pageSize, billingMonth, billingYear, search } = query;
 
-    // set default values for pagination
     pageIndex = parseInt(pageIndex);
     pageSize = parseInt(pageSize);
-
-    // set the offset for pagination
     const offset = (pageIndex - 1) * pageSize;
     const limit = pageSize;
 
-    // check if the billings are cached in Redis
+    // create cache key
     const cacheKey = `billings:page:${pageIndex}:size:${pageSize}:search:${search || ''}:month:${billingMonth}:year:${billingYear}`;
     const cachedBillings = await redisClient.get(cacheKey);
-
     if (cachedBillings) {
-        // return cached billings if available
         return JSON.parse(cachedBillings);
-    };
+    }
 
-    // build the where clause for searching
-    const whereClause = search
-    ? {
-        billing_invoice_number: {
-            [Op.like]: `%${search}%`
-        }
-        }
-    : {
+    // build the where clause
+    const whereClause = {
+        billing_is_cancelled: false,
         ...(billingMonth ? { billing_month: billingMonth } : {}),
-        ...(billingYear ? { billing_year: billingYear } : {})
+        ...(billingYear ? { billing_year: billingYear } : {}),
+        ...(search
+            ? { billing_invoice_number: { [Op.like]: `%${search}%` } }
+            : {}),
     };
 
+    // total for the month result
+    const totalForMonthResult = await Billing.findOne({
+        where: whereClause,
+        attributes: [
+            [Sequelize.fn('SUM', Sequelize.col('billing_total_amount')), 'total_billing_amount'],
+        ],
+        raw: true,
+    });
 
-    // fetch the billings from the database
     const { count, rows } = await Billing.findAndCountAll({
         where: whereClause,
         offset,
+        limit,
         include: [
             {
                 model: ClientDepartment,
                 as: 'department',
                 required: false,
-                attributes: ['client_department_name']
-            }
+                attributes: ['client_department_name'],
+            },
         ],
-        limit,
         order: [['createdAt', 'DESC']],
     });
 
-    // calculate total pages
+
+    const totalBillingForMonth= parseFloat(totalForMonthResult.total_billing_amount || 0);
     const totalPages = Math.ceil(count / pageSize);
 
-    // prepare the response object
     const response = {
         pageIndex,
         pageSize,
         totalPages,
         totalRecords: count,
-        billings: rows
+        totalBillingForMonth,
+        billings: rows,
     };
 
-    // cache the response in Redis
-    await redisClient.set(cacheKey, JSON.stringify(response), 'EX', 3600); // cache for 1 hour
+    await redisClient.set(cacheKey, JSON.stringify(response), 'EX', 3600);
 
     return response;
 };
@@ -236,4 +251,36 @@ exports.deleteBillingService = async (billingId) => {
     await clearBillingsCache(billingId);
 
     return { message: 'Billing deleted successfully.' };
+};
+
+
+// service to cancel billing by ID
+exports.cancelBillingService = async (billingId, data) => {
+    // validate the billing ID
+    validateBillingId(billingId);
+
+    // check if the billing exists
+    const billing = await Billing.findByPk(billingId);
+
+    if (!billing) {
+        const error = new Error('Billing not found.');
+        error.status = 404;
+        throw error;
+    };
+
+    // create a new cancelled invoice record
+    const cancelledInvoice = await CancelledInvoice.create({
+        cancelled_invoice_number: billing.billing_invoice_number,
+        cancelled_invoice_amount: billing.billing_total_amount,
+        cancelled_invoice_remarks: data.remarks || 'Cancelled by user',
+        cancelled_invoice_billing_id: billing.id
+    });
+
+    // delete the original billing record
+    // await billing.destroy();
+
+    // clear the billing cache
+    await clearBillingsCache(billingId);
+
+    return cancelledInvoice;
 };
