@@ -141,9 +141,6 @@ exports.updateMachineByIdService = async (machineId, data) => {
     // validate machine ID
     validateMachineId(machineId);
 
-    // validate input fields
-    validateMachineFields(data);
-
     // fetch the existing machine
     const machine = await Machine.findByPk(machineId);
     if (!machine) {
