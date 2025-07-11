@@ -60,13 +60,15 @@ exports.getAllMachinesService = async (params) => {
 
     let { pageIndex, pageSize, search } = params;
 
+    const trimmedSearch = search ? search.trim() : '';
+  
     pageIndex = parseInt(pageIndex, 10) || 0;
     pageSize = parseInt(pageSize, 10) || 10;
-    const offset = pageIndex * pageSize;
+    const offset = (pageIndex - 1) * pageSize;
     const limit = pageSize;
 
     // create cache key
-    const cacheKey = `machines:page:${pageIndex}:size:${pageSize}:search:${search || ''}`;
+    const cacheKey = `machines:page:${pageIndex}:size:${pageSize}:search:${trimmedSearch || ''}`;
     const cachedMachines = await redisClient.get(cacheKey);
     if (cachedMachines) {
         // if cache exists, return cached data
@@ -74,11 +76,11 @@ exports.getAllMachinesService = async (params) => {
     }
 
     // build the where clause if search is provided
-    const whereClause = search ? {
+    const whereClause = trimmedSearch ? {
         [Op.or]: [
-            { machine_brand: { [Op.like]: `%${search}%` } },
-            { machine_model: { [Op.like]: `%${search}%` } },
-            { machine_serial_number: { [Op.like]: `%${search}%` } },
+            { machine_brand: { [Op.like]: `%${trimmedSearch}%` } },
+            { machine_model: { [Op.like]: `%${trimmedSearch}%` } },
+            { machine_serial_number: { [Op.like]: `%${trimmedSearch}%` } },
         ]
     } : {};
 
