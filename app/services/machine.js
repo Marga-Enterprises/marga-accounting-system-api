@@ -153,7 +153,7 @@ exports.updateMachineByIdService = async (machineId, data) => {
     await machine.update(data);
 
     // clear cache for machines
-    await clearMachinesCache();
+    await clearMachinesCache(machineId);
 
     return machine;
 };
