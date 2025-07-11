@@ -76,11 +76,13 @@ exports.getAllDepartmentsService = async (query) => {
         raw: true
     });
 
+    const totalPages = Math.ceil(count / pageSize);
+
     // prepare the response data
     const response = {
         pageIndex,
         pageSize,
-        totalPages: Math.ceil(count / pageSize),
+        totalPages,
         totalRecords: count,
         departments: rows
     };

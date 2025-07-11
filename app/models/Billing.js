@@ -21,7 +21,6 @@ module.exports = (sequelize, DataTypes) => {
         billing_invoice_number: {
             type: DataTypes.STRING(100),
             allowNull: false,
-            unique: true,
         },
         billing_amount: {
             type: DataTypes.DECIMAL(10, 2),
@@ -68,8 +67,7 @@ module.exports = (sequelize, DataTypes) => {
         underscored: true,
         indexes: [
             {
-                unique: true,
-                name: 'unique_billing_invoice_number',
+                name: 'billing_invoice_number',
                 fields: ['billing_invoice_number'],
             },
         ],

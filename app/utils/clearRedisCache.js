@@ -170,3 +170,37 @@ exports.clearBillingsCache = async (billingId) => {
     console.error("❌ Error clearing billing cache:", error);
   }
 };
+
+
+// clear machine cache
+exports.clearMachinesCache = async (machineId) => {
+  try {
+    console.log("🧹 Clearing machines cache...");
+
+    // Define the key patterns for machines
+    const pattern = `machines:page*`;
+    const filteredPattern = `machines:page*:search*`;
+    
+    // If a machineId is provided, create a specific key pattern for that machine
+    const machineKeys = machineId ? await redisClient.keys(`machine*:${machineId}`) : [];
+
+    // Fetch all keys matching the patterns
+    const allPaginatedKeys = await redisClient.keys(pattern);
+    const allFilteredKeys = await redisClient.keys(filteredPattern);
+
+    // Combine all keys into a unique set
+    const allKeys = [...new Set([...allPaginatedKeys, ...allFilteredKeys, ...machineKeys])];
+
+    // If there are any keys to delete, proceed with deletion
+    if (allKeys.length > 0) {
+      await redisClient.del(allKeys);
+      console.log(`🗑️ Cleared ${allKeys.length} machines cache entries.`);
+    } else {
+      console.log("ℹ️ No matching machines cache keys found.");
+    }
+
+    console.log("✅ Machines cache cleared.");
+  } catch (error) {
+    console.error("❌ Error clearing machines cache:", error);
+  }
+};

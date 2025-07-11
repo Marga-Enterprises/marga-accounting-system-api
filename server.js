@@ -29,6 +29,7 @@ const clientRoutes = require("@routes/client");
 const clientDepartmentRoutes = require("@routes/clientdepartment");
 const clientBranchRoutes = require("@routes/clientbranch");
 const billingRoutes = require("@routes/billing");
+const machineROutes = require("@routes/machine");
 
 // Use routes
 app.use("/auth", authRoutes);
@@ -37,6 +38,7 @@ app.use("/client", clientRoutes);
 app.use("/clientdepartment", clientDepartmentRoutes);
 app.use("/clientbranch", clientBranchRoutes);
 app.use("/billing", billingRoutes);
+app.use("/machine", machineROutes);
 
 // Sync Database and Start Server
 sequelize

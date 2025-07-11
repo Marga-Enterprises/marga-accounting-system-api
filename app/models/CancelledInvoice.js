@@ -20,7 +20,7 @@ module.exports = (sequelize, DataTypes) => {
         },
         cancelled_invoice_billing_id: {
             type: DataTypes.INTEGER(11),
-            allowNull: true, // ✅ must be true to match SET NULL
+            allowNull: true, 
         },
     }, {
         tableName: 'tbl_cancelled_invoices',
@@ -45,7 +45,7 @@ module.exports = (sequelize, DataTypes) => {
             foreignKey: 'cancelled_invoice_billing_id',
             as: 'billing',
             onUpdate: 'CASCADE',
-            onDelete: 'SET NULL', // ✅ matches allowNull: true
+            onDelete: 'SET NULL',
         });
     };
 
