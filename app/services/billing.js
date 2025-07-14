@@ -96,7 +96,7 @@ exports.getAllBillingsService = async (query) => {
     // validate query params
     validateListBillingsParams(query);
 
-    let { pageIndex, pageSize, billingMonth, billingYear, search } = query;
+    let { pageIndex, pageSize, billingMonth, billingYear, search, category } = query;
 
     pageIndex = parseInt(pageIndex);
     pageSize = parseInt(pageSize);
@@ -104,7 +104,15 @@ exports.getAllBillingsService = async (query) => {
     const limit = pageSize;
 
     // create cache key
-    const cacheKey = `billings:page:${pageIndex}:size:${pageSize}:search:${search || ''}:month:${billingMonth}:year:${billingYear}`;
+    const cacheKey = 
+          `
+            billings:page:${pageIndex}
+            :category:${category || ''}
+            :size:${pageSize}
+            :search:${search || ''}
+            :month:${billingMonth}
+            :year:${billingYear}
+          `;
     const cachedBillings = await redisClient.get(cacheKey);
     if (cachedBillings) {
         return JSON.parse(cachedBillings);
@@ -113,6 +121,7 @@ exports.getAllBillingsService = async (query) => {
     // build the where clause
     const whereClause = {
         billing_is_cancelled: false,
+        ...(category ? { billing_type: category } : {}),
         ...(billingMonth ? { billing_month: billingMonth } : {}),
         ...(billingYear ? { billing_year: billingYear } : {}),
         ...(search

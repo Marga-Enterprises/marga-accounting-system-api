@@ -5,6 +5,7 @@ require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 
+const nodemailer = require('nodemailer');
 
 // get token from headers
 exports.getToken = (headers) => {
@@ -116,4 +117,18 @@ exports.comparePassword = async (password, hashedPassword) => {
     console.error('Error comparing password:', error);
     throw error;
   }
+};
+
+
+// create a nodemailer transporter
+exports.createTransporter = () => {
+  return nodemailer.createTransport({
+    host: process.env.EMAIL_HOST,
+    port: process.env.EMAIL_PORT,
+    secure: process.env.EMAIL_SECURE === 'true',
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
+    },
+  });
 };
