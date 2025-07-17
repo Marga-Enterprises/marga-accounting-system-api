@@ -99,6 +99,13 @@ module.exports = (sequelize, DataTypes) => {
             onUpdate: 'CASCADE',
             onDelete: 'SET NULL',
         });
+
+        Billing.hasMany(models.Collection, {
+            foreignKey: 'collection_billing_id',
+            as: 'collections',
+            onUpdate: 'CASCADE',
+            onDelete: 'CASCADE',
+        });
     };
 
     return Billing;
