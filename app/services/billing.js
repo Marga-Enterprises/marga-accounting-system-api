@@ -1,5 +1,5 @@
 // models and sequelize imports
-const { Billing, ClientDepartment, CancelledInvoice } = require('@models');
+const { Billing, ClientDepartment, CancelledInvoice, Collection } = require('@models');
 const { Op, Sequelize } = require('sequelize');
 
 // validator functions
@@ -32,7 +32,7 @@ exports.createBillingService = async (data) => {
     } = data;
 
     // validate input
-    validateBillingFields(data);
+    //validateBillingFields(data);
 
     // check for existing billing by invoice number
     const existingBilling = await Billing.findOne({ where: { billing_invoice_number } });
@@ -85,9 +85,23 @@ exports.createBillingService = async (data) => {
         billing_client_id,
     });
 
+    // create collection as well
+    const newCollection = await Collection.create({
+        collection_billing_id: newBilling.id,
+        collection_invoice_number: newBilling.billing_invoice_number,
+        collection_amount: newBilling.billing_total_amount,
+        collection_date: new Date(), 
+        collection_remarks: '' 
+    })
+
     await clearBillingsCache();
 
-    return newBilling;
+    const response = {
+        billing: newBilling,
+        collection: newCollection
+    };
+
+    return response;
 };
 
 
