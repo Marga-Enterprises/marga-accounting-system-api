@@ -10,7 +10,10 @@ const {
 } = require('@validators/billing');
 
 // utility redis client
-const { clearBillingsCache } = require('@utils/clearRedisCache');
+const { 
+    clearBillingsCache,
+    clearCollectionsCache 
+} = require('@utils/clearRedisCache');
 
 // redis
 const redisClient = require('@config/redis');
@@ -298,6 +301,16 @@ exports.cancelBillingService = async (billingId, data) => {
         cancelled_invoice_remarks: data.remarks || 'Cancelled by user',
         cancelled_invoice_billing_id: billing.id
     });
+
+    // delete collection
+    const collection = await Collection.findOne({
+        where: {cancelledInvoiceId: billing.id}
+    });
+
+    if (collection) {
+        await collection.destroy();
+        await clearCollectionsCache();
+    }
 
     // delete the original billing record
     // await billing.destroy();
