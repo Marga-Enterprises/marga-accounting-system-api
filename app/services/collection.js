@@ -1,6 +1,9 @@
 // models and sequelize imports
 const { Collection, Billing } = require('@models');
-const { Op, col } = require('sequelize');
+const { Op } = require('sequelize');
+
+// dayjs for date manipulation
+const dayjs = require('dayjs');
 
 // validator functions
 const {
@@ -53,8 +56,11 @@ exports.getAllCollectionsService = async (query) => {
     // validate the query parameters
     validateListCollectionsParams(query);
 
+    // get today from dayjs
+    const today = dayjs();
+
     // get the query parameters
-    let { pageIndex, pageSize, search } = query;
+    let { pageIndex, pageSize, search, status, dateRange } = query;
 
     // set default values for pagination
     pageIndex = parseInt(pageIndex);
@@ -63,7 +69,7 @@ exports.getAllCollectionsService = async (query) => {
     const limit = pageSize;
 
     // check if the collections are cached in Redis
-    const cacheKey = `collections:page:${pageIndex}:${pageSize}:search:${search || ''}`;
+    const cacheKey = `collections:page:${pageIndex}:${pageSize}:search:${search || ''}:status:${status || ''}:range:${dateRange || ''}`;
     const cachedCollections = await redisClient.get(cacheKey);
 
     if (cachedCollections) {
@@ -71,16 +77,54 @@ exports.getAllCollectionsService = async (query) => {
         return JSON.parse(cachedCollections);
     };
 
-    // where for filtering collections
-    const whereClause = search ? {
-        collection_invoice_number: {
+    // build where clause
+    const whereClause = {};
+
+    // search by invoice number
+    if (search) {
+        whereClause.collection_invoice_number = {
             [Op.like]: `%${search}%`
+        };
+    }
+
+    // filter by status
+    if (status) {
+        whereClause.collection_status = status;
+    }
+
+    // filter by collection date range
+    if (dateRange && !status) {
+        // force status to 'pending' for date range filter
+        whereClause.collection_status = 'pending';
+
+        if (dateRange === '1-30') {
+            whereClause.collection_date = {
+                [Op.gte]: today.subtract(30, 'day').toDate()
+            };
+        } else if (dateRange === '31-60') {
+            whereClause.collection_date = {
+                [Op.between]: [
+                    today.subtract(60, 'day').toDate(),
+                    today.subtract(31, 'day').toDate()
+                ]
+            };
+        } else if (dateRange === '61-90') {
+            whereClause.collection_date = {
+                [Op.between]: [
+                    today.subtract(90, 'day').toDate(),
+                    today.subtract(61, 'day').toDate()
+                ]
+            };
+        } else if (dateRange === '90+') {
+            whereClause.collection_date = {
+                [Op.lt]: today.subtract(90, 'day').toDate()
+            };
         }
-    } : {};
+    }
 
     // fetch collections from the database
-    const { count, rows  } = await Collection.findAndCountAll({
-        whereClause,
+    const { count, rows } = await Collection.findAndCountAll({
+        where: whereClause,
         offset,
         limit,
         order: [['createdAt', 'DESC']],

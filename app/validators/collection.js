@@ -34,13 +34,11 @@ exports.validateCollectionId = (id) => {
 
 // validateListCollectionsParams function to validate the query parameters for listing collections
 exports.validateListCollectionsParams = (query) => {
-    const { pageIndex, pageSize, billingId } = query;
+    const { pageIndex, pageSize } = query;
 
     if (
         !pageIndex ||
         !pageSize ||
-        !billingId ||
-        isNaN(billingId) ||
         isNaN(pageIndex) ||
         isNaN(pageSize) ||
         pageIndex < 0 ||
