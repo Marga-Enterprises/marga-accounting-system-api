@@ -14,6 +14,7 @@ const {
     updateBillingService, 
     deleteBillingService,
     cancelBillingService,
+    createBulkBillingsService,
 } = require('@services/billing');
 
 
@@ -31,6 +32,24 @@ exports.create = async (req, res) => {
         return sendSuccess(res, result, 'Billing created successfully.');
     } catch (error) {
         console.error('Error creating billing:', error);
+        return sendError(res, '', error.message, error.status);
+    }
+};
+
+
+// create bulk billings
+exports.createBulk = async (req, res) => {
+    // check if user is loggeed in
+    const token = getToken(req.headers);
+    if (!token) return sendUnauthorizedError(res, '', 'You are not logged in.');
+
+    try {
+        // call the service to create bulk billings
+        const result = await createBulkBillingsService(req.body);
+
+        // send response with the created billings data
+        return sendSuccess(res, result, 'Billings created successfully.');
+    } catch (error) {
         return sendError(res, '', error.message, error.status);
     }
 };

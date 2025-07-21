@@ -35,7 +35,7 @@ exports.createBillingService = async (data) => {
     } = data;
 
     // validate input
-    //validateBillingFields(data);
+    validateBillingFields(data);
 
     // check for existing billing by invoice number
     const existingBilling = await Billing.findOne({ where: { billing_invoice_number } });
@@ -104,6 +104,75 @@ exports.createBillingService = async (data) => {
         collection: newCollection
     };
 
+    return response;
+};
+
+
+// service to bulk create billings
+exports.createBulkBillingsService = async (data) => {
+    // validate input
+    if (!Array.isArray(data) || data.length === 0) {
+        const error = new Error('Invalid input data for bulk billing creation.');
+        error.status = 400;
+        throw error;
+    }
+
+    // validate each billing entry
+    data.forEach(billing => {
+        validateBillingFields(billing);
+    });
+
+    // check for existing billings by invoice number
+    const existingBillings = await Billing.findAll({
+        where: {
+            billing_invoice_number: data.map(b => b.billing_invoice_number)
+        }
+    });
+
+    if (existingBillings.length > 0) {
+        const existingInvoiceNumbers = existingBillings.map(b => b.billing_invoice_number);
+        const error = new Error(`Billings with invoice numbers ${existingInvoiceNumbers.join(', ')} already exist.`);
+        error.status = 409;
+        throw error;
+    };
+
+    // client department check
+    const departmentIds = data.map(b => b.billing_department_id);
+    const clientDepartments = await ClientDepartment.findAll({
+        where: {
+            id: departmentIds
+        }
+    });
+
+    if (clientDepartments.length !== departmentIds.length) {
+        const error = new Error('One or more client departments not found.');
+        error.status = 404;
+        throw error;
+    };
+
+    // create billings in bulk
+    const newBillings = await Billing.bulkCreate(data, {
+        returning: true // to get the created records back
+    });
+
+    // create collections for each billing
+    const newCollections = await Collection.bulkCreate(newBillings.map(billing => ({
+        collection_billing_id: billing.id,
+        collection_invoice_number: billing.billing_invoice_number,
+        collection_amount: billing.billing_total_amount,
+        collection_date: new Date(), // current date
+        collection_remarks: '' // default remarks
+    })));
+
+    // clear the billings cache
+    await clearBillingsCache();
+
+    const response = {
+        billings: newBillings,
+        collections: newCollections
+    };
+
+    // return the created billings and collections
     return response;
 };
 

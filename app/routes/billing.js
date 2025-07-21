@@ -6,6 +6,7 @@ const billingController = require('@controllers/billing');
 
 // Define routes for billing operations
 router.post('/', billingController.create);
+router.post('/bulk', billingController.createBulk);
 router.get('/', billingController.list);
 router.get('/:billingId', billingController.getById);
 router.put('/:billingId', billingController.update);
