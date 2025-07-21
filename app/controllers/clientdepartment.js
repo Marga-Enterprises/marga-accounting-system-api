@@ -4,6 +4,7 @@ const {
     sendSuccess,
     sendError,
     sendUnauthorizedError,
+    createTransporter,
 } = require('@utils/methods');
 
 // services
@@ -13,7 +14,8 @@ const {
     getClientDepartmentByIdService,
     getClientByNameService,
     updateClientDepartmentService,
-    deleteClientDepartmentService
+    deleteClientDepartmentService,
+    sendEmailNotificationService,
 } = require('@services/clientdepartment');
 
 
@@ -119,6 +121,27 @@ exports.delete = async (req, res) => {
 
         // send response indicating successful deletion
         return sendSuccess(res, result, 'Client Department deleted successfully.');
+    } catch (error) {
+        return sendError(res, '', error.message, error.status);
+    }
+};
+
+
+// send email notification to selected clients
+exports.sendEmailNotification = async (req, res) => {
+    // check if the user is logged in
+    const token = getToken(req.headers);
+    if (!token) return sendUnauthorizedError(res, '', 'You are not logged in.');
+
+    try {
+        // create email transporter
+        const transporter = createTransporter();
+
+        // call the service to send email notification
+        const result = await sendEmailNotificationService(transporter, req.body);
+
+        // send response with the success message
+        return sendSuccess(res, result, 'Email notification sent successfully.');
     } catch (error) {
         return sendError(res, '', error.message, error.status);
     }

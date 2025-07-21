@@ -63,3 +63,23 @@ exports.validateClientId = (id) => {
 
     return true;
 };
+
+
+// validateEmailNotificationParams function to validate the parameters for sending email notifications
+exports.validateEmailNotificationParams = (data) => {
+    const { clientIds, subject, message } = data;
+
+    if (!Array.isArray(clientIds) || clientIds.length === 0) {
+        throw new Error('Invalid or missing client IDs.');
+    }
+
+    if (!subject || typeof subject !== 'string') {
+        throw new Error('Invalid or missing email subject.');
+    }
+
+    if (!message || typeof message !== 'string') {
+        throw new Error('Invalid or missing email message.');
+    }
+
+    return true;
+};

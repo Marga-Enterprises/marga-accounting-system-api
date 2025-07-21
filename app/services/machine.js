@@ -92,6 +92,7 @@ exports.getAllMachinesService = async (params) => {
         order: [['createdAt', 'DESC']],
     });
 
+    // calculate total pages
     const totalPages = Math.ceil(count / pageSize);
 
     // prepare the response object

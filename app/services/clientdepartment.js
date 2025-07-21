@@ -9,6 +9,7 @@ const {
     validateClientId,
     validateClientDepartmentName,
     validateClientDepartmentId,
+    validateEmailNotificationParams
 } = require('@validators/clientdepartment');
 
 // utility redis client
@@ -269,4 +270,41 @@ exports.deleteClientDepartmentService = async (id) => {
     await clearClientDepartmentsCache();
 
     return { message: 'Client Department deleted successfully.' };
+};
+
+
+// Send email notification to selected clients
+exports.sendEmailNotificationService = async (transporter, data) => {
+    // validate the input params
+    validateEmailNotificationParams(data);  
+
+    const { clientIds, subject, message } = data;
+
+    // fetch clients by IDs
+    const clients = await ClientDepartment.findAll({
+        where: {
+            id: {
+                [Op.in]: clientIds
+            }
+        }
+    });
+
+    if (clients.length === 0) {
+        throw new Error('No clients found with the provided IDs.');
+    };
+
+    // prepare email options
+    const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: clients.map(client => client.client_department_email).join(', '),
+        subject: subject,
+        text: message
+    };
+
+    // send email using the transporter
+    try {
+        await transporter.sendMail(mailOptions);
+    } catch (error) {
+        throw new Error(`Failed to send email: ${error.message}`);
+    }
 };

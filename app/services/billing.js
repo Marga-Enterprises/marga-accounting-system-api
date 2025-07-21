@@ -1,5 +1,5 @@
 // models and sequelize imports
-const { Billing, ClientDepartment, CancelledInvoice } = require('@models');
+const { Billing, ClientDepartment, CancelledInvoice, Collection } = require('@models');
 const { Op, Sequelize } = require('sequelize');
 
 // validator functions
@@ -10,7 +10,10 @@ const {
 } = require('@validators/billing');
 
 // utility redis client
-const { clearBillingsCache } = require('@utils/clearRedisCache');
+const { 
+    clearBillingsCache,
+    clearCollectionsCache 
+} = require('@utils/clearRedisCache');
 
 // redis
 const redisClient = require('@config/redis');
@@ -32,7 +35,7 @@ exports.createBillingService = async (data) => {
     } = data;
 
     // validate input
-    validateBillingFields(data);
+    //validateBillingFields(data);
 
     // check for existing billing by invoice number
     const existingBilling = await Billing.findOne({ where: { billing_invoice_number } });
@@ -85,9 +88,23 @@ exports.createBillingService = async (data) => {
         billing_client_id,
     });
 
+    // create collection as well
+    const newCollection = await Collection.create({
+        collection_billing_id: newBilling.id,
+        collection_invoice_number: newBilling.billing_invoice_number,
+        collection_amount: newBilling.billing_total_amount,
+        collection_date: new Date(), 
+        collection_remarks: '' 
+    })
+
     await clearBillingsCache();
 
-    return newBilling;
+    const response = {
+        billing: newBilling,
+        collection: newCollection
+    };
+
+    return response;
 };
 
 
@@ -96,7 +113,7 @@ exports.getAllBillingsService = async (query) => {
     // validate query params
     validateListBillingsParams(query);
 
-    let { pageIndex, pageSize, billingMonth, billingYear, search } = query;
+    let { pageIndex, pageSize, billingMonth, billingYear, search, category } = query;
 
     pageIndex = parseInt(pageIndex);
     pageSize = parseInt(pageSize);
@@ -104,7 +121,15 @@ exports.getAllBillingsService = async (query) => {
     const limit = pageSize;
 
     // create cache key
-    const cacheKey = `billings:page:${pageIndex}:size:${pageSize}:search:${search || ''}:month:${billingMonth}:year:${billingYear}`;
+    const cacheKey = 
+          `
+            billings:page:${pageIndex}
+            :category:${category || ''}
+            :size:${pageSize}
+            :search:${search || ''}
+            :month:${billingMonth}
+            :year:${billingYear}
+          `;
     const cachedBillings = await redisClient.get(cacheKey);
     if (cachedBillings) {
         return JSON.parse(cachedBillings);
@@ -113,6 +138,7 @@ exports.getAllBillingsService = async (query) => {
     // build the where clause
     const whereClause = {
         billing_is_cancelled: false,
+        ...(category ? { billing_type: category } : {}),
         ...(billingMonth ? { billing_month: billingMonth } : {}),
         ...(billingYear ? { billing_year: billingYear } : {}),
         ...(search
@@ -275,6 +301,16 @@ exports.cancelBillingService = async (billingId, data) => {
         cancelled_invoice_remarks: data.remarks || 'Cancelled by user',
         cancelled_invoice_billing_id: billing.id
     });
+
+    // delete collection
+    const collection = await Collection.findOne({
+        where: {cancelledInvoiceId: billing.id}
+    });
+
+    if (collection) {
+        await collection.destroy();
+        await clearCollectionsCache();
+    }
 
     // delete the original billing record
     // await billing.destroy();
