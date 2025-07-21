@@ -35,7 +35,7 @@ exports.createBillingService = async (data) => {
     } = data;
 
     // validate input
-    validateBillingFields(data);
+    // validateBillingFields(data);
 
     // check for existing billing by invoice number
     const existingBilling = await Billing.findOne({ where: { billing_invoice_number } });
@@ -118,9 +118,9 @@ exports.createBulkBillingsService = async (data) => {
     }
 
     // validate each billing entry
-    data.forEach(billing => {
+    /*data.forEach(billing => {
         validateBillingFields(billing);
-    });
+    });*/
 
     // check for existing billings by invoice number
     const existingBillings = await Billing.findAll({
@@ -136,24 +136,19 @@ exports.createBulkBillingsService = async (data) => {
         throw error;
     };
 
-    // client department check
-    const departmentIds = data.map(b => b.billing_department_id);
-    const clientDepartments = await ClientDepartment.findAll({
+    // get the ids of client departments from billing_client_department_name
+    const clientDepartmentIds = await ClientDepartment.findAll({
         where: {
-            id: departmentIds
-        }
+            client_department_name: data.map(b => b.billing_department_name)
+        },
+        attributes: ['id']
     });
 
-    if (clientDepartments.length !== departmentIds.length) {
-        const error = new Error('One or more client departments not found.');
-        error.status = 404;
-        throw error;
-    };
-
-    // create billings in bulk
-    const newBillings = await Billing.bulkCreate(data, {
-        returning: true // to get the created records back
-    });
+    // create billings in bulk and saving the department ids
+    const newBillings = await Billing.bulkCreate(data.map(billing => ({
+        ...billing,
+        billing_department_id: clientDepartmentIds.find(cd => cd.client_department_name === billing.billing_department_name)?.id || null
+    })));
 
     // create collections for each billing
     const newCollections = await Collection.bulkCreate(newBillings.map(billing => ({
@@ -167,12 +162,14 @@ exports.createBulkBillingsService = async (data) => {
     // clear the billings cache
     await clearBillingsCache();
 
+    // clear the collections cache
+    await clearCollectionsCache();
+
     const response = {
         billings: newBillings,
         collections: newCollections
     };
-
-    // return the created billings and collections
+    
     return response;
 };
 
@@ -190,15 +187,7 @@ exports.getAllBillingsService = async (query) => {
     const limit = pageSize;
 
     // create cache key
-    const cacheKey = 
-          `
-            billings:page:${pageIndex}
-            :category:${category || ''}
-            :size:${pageSize}
-            :search:${search || ''}
-            :month:${billingMonth}
-            :year:${billingYear}
-          `;
+    const cacheKey = `billings:page:${pageIndex}:${pageSize}:search:${search || ''}:category:${category || ''}:month:${billingMonth || ''}:year:${billingYear || ''}`
     const cachedBillings = await redisClient.get(cacheKey);
     if (cachedBillings) {
         return JSON.parse(cachedBillings);
