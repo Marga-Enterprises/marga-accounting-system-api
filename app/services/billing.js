@@ -110,8 +110,12 @@ exports.createBillingService = async (data) => {
 
 // service to bulk create billings
 exports.createBulkBillingsService = async (data) => {
+    const bulkDataArray = Object.values(data);
+
+    console.log("[[[[[[[[[[[[[[[[[[Bulk data array:]]]]]]]]]]]]]]]]]]", bulkDataArray);
+
     // validate input
-    if (!Array.isArray(data) || data.length === 0) {
+    if (!Array.isArray(bulkDataArray) || bulkDataArray.length === 0) {
         const error = new Error('Invalid input data for bulk billing creation.');
         error.status = 400;
         throw error;
@@ -125,7 +129,7 @@ exports.createBulkBillingsService = async (data) => {
     // check for existing billings by invoice number
     const existingBillings = await Billing.findAll({
         where: {
-            billing_invoice_number: data.map(b => b.billing_invoice_number)
+            billing_invoice_number: bulkDataArray.map(b => b.billing_invoice_number)
         }
     });
 
@@ -139,15 +143,16 @@ exports.createBulkBillingsService = async (data) => {
     // get the ids of client departments from billing_client_department_name
     const clientDepartmentIds = await ClientDepartment.findAll({
         where: {
-            client_department_name: data.map(b => b.billing_department_name)
+            client_department_name: bulkDataArray.map(b => b.billing_client_department_name)
         },
-        attributes: ['id']
+        attributes: ['id', 'client_department_client_id']
     });
 
     // create billings in bulk and saving the department ids
-    const newBillings = await Billing.bulkCreate(data.map(billing => ({
+    const newBillings = await Billing.bulkCreate(bulkDataArray.map(billing => ({
         ...billing,
-        billing_department_id: clientDepartmentIds.find(cd => cd.client_department_name === billing.billing_department_name)?.id || null
+        billing_department_id: clientDepartmentIds.find(cd => cd.client_department_name === billing.billing_department_name)?.id || null,
+        billing_client_id: clientDepartmentIds.find(cd => cd.client_department_name === billing.billing_department_name)?.client_department_client_id || null,
     })));
 
     // create collections for each billing
