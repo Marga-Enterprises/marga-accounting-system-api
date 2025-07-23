@@ -1,5 +1,5 @@
 // models and sequelize imports
-const { Collection, Billing } = require('@models');
+const { Collection, Billing, ClientDepartment } = require('@models');
 const { Op } = require('sequelize');
 
 // dayjs for date manipulation
@@ -80,7 +80,6 @@ exports.getAllCollectionsService = async (query) => {
     // build where clause
     const whereClause = {};
 
-    // search by invoice number
     if (search) {
         whereClause.collection_invoice_number = {
             [Op.like]: `%${search}%`
@@ -127,6 +126,26 @@ exports.getAllCollectionsService = async (query) => {
         where: whereClause,
         offset,
         limit,
+        include: [
+            {
+                model: Billing,
+                as: 'billing',
+                attributes: [
+                    'id', 
+                    'billing_invoice_number', 
+                    'billing_total_amount', 
+                    'billing_department_id',
+                ],
+                include: [
+                    {
+                        model: ClientDepartment,
+                        as: 'department',
+                        attributes: ['client_department_name'],
+                    }
+                ],
+                required: true,
+            }
+        ],
         order: [['createdAt', 'DESC']],
     });
 

@@ -112,8 +112,6 @@ exports.createBillingService = async (data) => {
 exports.createBulkBillingsService = async (data) => {
     const bulkDataArray = Object.values(data);
 
-    console.log("[[[[[[[[[[[[[[[[[[Bulk data array:]]]]]]]]]]]]]]]]]]", bulkDataArray);
-
     // validate input
     if (!Array.isArray(bulkDataArray) || bulkDataArray.length === 0) {
         const error = new Error('Invalid input data for bulk billing creation.');
