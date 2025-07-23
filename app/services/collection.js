@@ -80,10 +80,12 @@ exports.getAllCollectionsService = async (query) => {
     // build where clause
     const whereClause = {};
 
+    // search by in
     if (search) {
-        whereClause.collection_invoice_number = {
-            [Op.like]: `%${search}%`
-        };
+        whereClause[Op.or] = [
+            { collection_invoice_number: { [Op.like]: `%${search}%` } },
+            { '$billing.department.client_department_name$': { [Op.like]: `%${search}%` } }
+        ];
     }
 
     // filter by status
@@ -135,6 +137,7 @@ exports.getAllCollectionsService = async (query) => {
                     'billing_invoice_number', 
                     'billing_total_amount', 
                     'billing_department_id',
+                    'billing_type'
                 ],
                 include: [
                     {
@@ -147,6 +150,7 @@ exports.getAllCollectionsService = async (query) => {
             }
         ],
         order: [['createdAt', 'DESC']],
+        subQuery: false
     });
 
     // calculate total pages

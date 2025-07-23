@@ -17,6 +17,7 @@ const {
 
 // redis
 const redisClient = require('@config/redis');
+const { raw } = require('mysql2');
 
 
 // service to create a new billing
@@ -141,17 +142,35 @@ exports.createBulkBillingsService = async (data) => {
     // get the ids of client departments from billing_client_department_name
     const clientDepartmentIds = await ClientDepartment.findAll({
         where: {
-            client_department_name: bulkDataArray.map(b => b.billing_client_department_name)
+            client_department_name: [...new Set(bulkDataArray.map(b => b.billing_client_department_name))]
         },
-        attributes: ['id', 'client_department_client_id']
+        attributes: [
+            'client_department_name',
+            'id',
+            'client_department_client_id'
+        ],
+        group: ['client_department_name'],
+        raw: true
     });
 
+    // loop through the client departments and map them to their ids
+    const clientDepartmentMap = {};
+    for (const dept of clientDepartmentIds) {
+        clientDepartmentMap[dept.client_department_name] = dept;
+    }
+
     // create billings in bulk and saving the department ids
-    const newBillings = await Billing.bulkCreate(bulkDataArray.map(billing => ({
-        ...billing,
-        billing_department_id: clientDepartmentIds.find(cd => cd.client_department_name === billing.billing_department_name)?.id || null,
-        billing_client_id: clientDepartmentIds.find(cd => cd.client_department_name === billing.billing_department_name)?.client_department_client_id || null,
-    })));
+    const newBillings = await Billing.bulkCreate(
+        bulkDataArray.map(billing => {
+            const match = clientDepartmentMap[billing.billing_client_department_name];
+
+            return {
+                ...billing,
+                billing_department_id: match?.id || null,
+                billing_client_id: match?.client_department_client_id || null
+            };
+        })
+    );
 
     // create collections for each billing
     const newCollections = await Collection.bulkCreate(newBillings.map(billing => ({
@@ -199,9 +218,9 @@ exports.getAllBillingsService = async (query) => {
     // build the where clause
     const whereClause = {
         billing_is_cancelled: false,
-        ...(category ? { billing_type: category } : {}),
-        ...(billingMonth ? { billing_month: billingMonth } : {}),
-        ...(billingYear ? { billing_year: billingYear } : {}),
+        ...(category && !search ? { billing_type: category } : {}),
+        ...(billingMonth && !search ? { billing_month: billingMonth } : {}),
+        ...(billingYear && !search ? { billing_year: billingYear } : {}),
         ...(search
             ? { billing_invoice_number: { [Op.like]: `%${search}%` } }
             : {}),
