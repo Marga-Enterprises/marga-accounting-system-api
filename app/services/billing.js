@@ -155,14 +155,23 @@ exports.createBulkBillingsService = async (data) => {
 
     // loop through the client departments and map them to their ids
     const clientDepartmentMap = {};
+
+    const normalize = (str) => {
+        return str
+            ?.replace(/[\r\n\u00A0\u200B]/g, '')
+            .replace(/\s+/g, ' ')               
+            .trim()                             
+            .toLowerCase();                     
+        };
+
     for (const dept of clientDepartmentIds) {
-        clientDepartmentMap[dept.client_department_name] = dept;
+        clientDepartmentMap[normalize(dept.client_department_name)] = dept;
     }
 
     // create billings in bulk and saving the department ids
     const newBillings = await Billing.bulkCreate(
         bulkDataArray.map(billing => {
-            const match = clientDepartmentMap[billing.billing_client_department_name];
+            const match = clientDepartmentMap[normalize(billing.billing_client_department_name)];
 
             return {
                 ...billing,
