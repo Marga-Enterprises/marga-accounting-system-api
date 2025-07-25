@@ -256,7 +256,9 @@ exports.getAllBillingsService = async (query) => {
                 attributes: ['client_department_name'],
             },
         ],
-        order: [['createdAt', 'DESC']],
+        order: [
+            [Sequelize.col('department.client_department_name'), 'ASC'],
+        ],
     });
 
 
