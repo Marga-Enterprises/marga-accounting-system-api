@@ -98,27 +98,34 @@ exports.getAllCollectionsService = async (query) => {
         // force status to 'pending' for date range filter
         whereClause.collection_status = 'pending';
 
-        if (dateRange === '1-30') {
+        if (dateRange === '1-29') {
             whereClause.collection_date = {
-                [Op.gte]: today.subtract(30, 'day').toDate()
+                [Op.gte]: today.subtract(29, 'day').toDate()
             };
-        } else if (dateRange === '31-60') {
+        } else if (dateRange === '30-59') {
             whereClause.collection_date = {
                 [Op.between]: [
-                    today.subtract(60, 'day').toDate(),
-                    today.subtract(31, 'day').toDate()
+                    today.subtract(59, 'day').toDate(),
+                    today.subtract(30, 'day').toDate()
                 ]
             };
-        } else if (dateRange === '61-90') {
+        } else if (dateRange === '60-89') {
+            whereClause.collection_date = {
+                [Op.between]: [
+                    today.subtract(89, 'day').toDate(),
+                    today.subtract(60, 'day').toDate()
+                ]
+            };
+        } else if (dateRange === '90-119') {
             whereClause.collection_date = {
                 [Op.between]: [
                     today.subtract(90, 'day').toDate(),
-                    today.subtract(61, 'day').toDate()
+                    today.subtract(119, 'day').toDate()
                 ]
             };
-        } else if (dateRange === '90+') {
+        } else if (dateRange === '120+') {
             whereClause.collection_date = {
-                [Op.lt]: today.subtract(90, 'day').toDate()
+                [Op.lte]: today.subtract(120, 'day').toDate()
             };
         }
     }

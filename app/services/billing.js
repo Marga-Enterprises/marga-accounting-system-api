@@ -17,7 +17,6 @@ const {
 
 // redis
 const redisClient = require('@config/redis');
-const { raw } = require('mysql2');
 
 
 // service to create a new billing
