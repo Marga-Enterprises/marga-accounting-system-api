@@ -145,7 +145,7 @@ exports.clearBillingsCache = async (billingId) => {
 
     // Define the key patterns for billing
     const pattern = `billings:page*`;
-    const filteredPattern = `billings:page*:search*:month*year*`;
+    const filteredPattern = `billings:page*:search*:category*:month*year*`;
     
     // If a billingId is provided, create a specific key pattern for that billing
     const billingKeys = billingId ? await redisClient.keys(`billing*:${billingId}`) : [];

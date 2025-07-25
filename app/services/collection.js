@@ -1,5 +1,5 @@
 // models and sequelize imports
-const { Collection, Billing } = require('@models');
+const { Collection, Billing, ClientDepartment } = require('@models');
 const { Op } = require('sequelize');
 
 // dayjs for date manipulation
@@ -80,11 +80,12 @@ exports.getAllCollectionsService = async (query) => {
     // build where clause
     const whereClause = {};
 
-    // search by invoice number
+    // search by in
     if (search) {
-        whereClause.collection_invoice_number = {
-            [Op.like]: `%${search}%`
-        };
+        whereClause[Op.or] = [
+            { collection_invoice_number: { [Op.like]: `%${search}%` } },
+            { '$billing.department.client_department_name$': { [Op.like]: `%${search}%` } }
+        ];
     }
 
     // filter by status
@@ -127,7 +128,29 @@ exports.getAllCollectionsService = async (query) => {
         where: whereClause,
         offset,
         limit,
+        include: [
+            {
+                model: Billing,
+                as: 'billing',
+                attributes: [
+                    'id', 
+                    'billing_invoice_number', 
+                    'billing_total_amount', 
+                    'billing_department_id',
+                    'billing_type'
+                ],
+                include: [
+                    {
+                        model: ClientDepartment,
+                        as: 'department',
+                        attributes: ['client_department_name'],
+                    }
+                ],
+                required: true,
+            }
+        ],
         order: [['createdAt', 'DESC']],
+        subQuery: false
     });
 
     // calculate total pages

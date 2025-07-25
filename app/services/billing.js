@@ -17,6 +17,7 @@ const {
 
 // redis
 const redisClient = require('@config/redis');
+const { raw } = require('mysql2');
 
 
 // service to create a new billing
@@ -35,7 +36,7 @@ exports.createBillingService = async (data) => {
     } = data;
 
     // validate input
-    //validateBillingFields(data);
+    // validateBillingFields(data);
 
     // check for existing billing by invoice number
     const existingBilling = await Billing.findOne({ where: { billing_invoice_number } });
@@ -108,6 +109,93 @@ exports.createBillingService = async (data) => {
 };
 
 
+// service to bulk create billings
+exports.createBulkBillingsService = async (data) => {
+    const bulkDataArray = Object.values(data);
+
+    // validate input
+    if (!Array.isArray(bulkDataArray) || bulkDataArray.length === 0) {
+        const error = new Error('Invalid input data for bulk billing creation.');
+        error.status = 400;
+        throw error;
+    }
+
+    // validate each billing entry
+    /*data.forEach(billing => {
+        validateBillingFields(billing);
+    });*/
+
+    // check for existing billings by invoice number
+    const existingBillings = await Billing.findAll({
+        where: {
+            billing_invoice_number: bulkDataArray.map(b => b.billing_invoice_number)
+        }
+    });
+
+    if (existingBillings.length > 0) {
+        const existingInvoiceNumbers = existingBillings.map(b => b.billing_invoice_number);
+        const error = new Error(`Billings with invoice numbers ${existingInvoiceNumbers.join(', ')} already exist.`);
+        error.status = 409;
+        throw error;
+    };
+
+    // get the ids of client departments from billing_client_department_name
+    const clientDepartmentIds = await ClientDepartment.findAll({
+        where: {
+            client_department_name: [...new Set(bulkDataArray.map(b => b.billing_client_department_name))]
+        },
+        attributes: [
+            'client_department_name',
+            'id',
+            'client_department_client_id'
+        ],
+        group: ['client_department_name'],
+        raw: true
+    });
+
+    // loop through the client departments and map them to their ids
+    const clientDepartmentMap = {};
+    for (const dept of clientDepartmentIds) {
+        clientDepartmentMap[dept.client_department_name] = dept;
+    }
+
+    // create billings in bulk and saving the department ids
+    const newBillings = await Billing.bulkCreate(
+        bulkDataArray.map(billing => {
+            const match = clientDepartmentMap[billing.billing_client_department_name];
+
+            return {
+                ...billing,
+                billing_department_id: match?.id || null,
+                billing_client_id: match?.client_department_client_id || null
+            };
+        })
+    );
+
+    // create collections for each billing
+    const newCollections = await Collection.bulkCreate(newBillings.map(billing => ({
+        collection_billing_id: billing.id,
+        collection_invoice_number: billing.billing_invoice_number,
+        collection_amount: billing.billing_total_amount,
+        collection_date: new Date(), // current date
+        collection_remarks: '' // default remarks
+    })));
+
+    // clear the billings cache
+    await clearBillingsCache();
+
+    // clear the collections cache
+    await clearCollectionsCache();
+
+    const response = {
+        billings: newBillings,
+        collections: newCollections
+    };
+    
+    return response;
+};
+
+
 // service to get all billings
 exports.getAllBillingsService = async (query) => {
     // validate query params
@@ -121,15 +209,7 @@ exports.getAllBillingsService = async (query) => {
     const limit = pageSize;
 
     // create cache key
-    const cacheKey = 
-          `
-            billings:page:${pageIndex}
-            :category:${category || ''}
-            :size:${pageSize}
-            :search:${search || ''}
-            :month:${billingMonth}
-            :year:${billingYear}
-          `;
+    const cacheKey = `billings:page:${pageIndex}:${pageSize}:search:${search || ''}:category:${category || ''}:month:${billingMonth || ''}:year:${billingYear || ''}`
     const cachedBillings = await redisClient.get(cacheKey);
     if (cachedBillings) {
         return JSON.parse(cachedBillings);
@@ -138,9 +218,9 @@ exports.getAllBillingsService = async (query) => {
     // build the where clause
     const whereClause = {
         billing_is_cancelled: false,
-        ...(category ? { billing_type: category } : {}),
-        ...(billingMonth ? { billing_month: billingMonth } : {}),
-        ...(billingYear ? { billing_year: billingYear } : {}),
+        ...(category && !search ? { billing_type: category } : {}),
+        ...(billingMonth && !search ? { billing_month: billingMonth } : {}),
+        ...(billingYear && !search ? { billing_year: billingYear } : {}),
         ...(search
             ? { billing_invoice_number: { [Op.like]: `%${search}%` } }
             : {}),
