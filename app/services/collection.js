@@ -1,6 +1,6 @@
 // models and sequelize imports
 const { Collection, Billing, ClientDepartment } = require('@models');
-const { Op } = require('sequelize');
+const { Op, Sequelize } = require('sequelize');
 
 // dayjs for date manipulation
 const dayjs = require('dayjs');
@@ -149,7 +149,9 @@ exports.getAllCollectionsService = async (query) => {
                 required: true,
             }
         ],
-        order: [['createdAt', 'DESC']],
+        order: [
+            [Sequelize.col('billing.department.client_department_name'), 'ASC'],
+        ],
         subQuery: false
     });
 
