@@ -119,8 +119,8 @@ exports.getAllCollectionsService = async (query) => {
         } else if (dateRange === '90-119') {
             whereClause.collection_date = {
                 [Op.between]: [
-                    today.subtract(90, 'day').toDate(),
-                    today.subtract(119, 'day').toDate()
+                    today.subtract(119, 'day').toDate(),
+                    today.subtract(90, 'day').toDate()
                 ]
             };
         } else if (dateRange === '120+') {
