@@ -94,38 +94,44 @@ exports.getAllCollectionsService = async (query) => {
     }
 
     // filter by collection date range
-    if (dateRange && !status) {
-        // force status to 'pending' for date range filter
-        whereClause.collection_status = 'pending';
+    if (dateRange) {
+        // Only force status to 'pending' if status is not explicitly set
+        if (!status) {
+            whereClause.collection_status = 'pending';
+        }
 
+        // Build date range
         if (dateRange === '1-29') {
             whereClause.collection_date = {
-                [Op.gte]: today.subtract(29, 'day').toDate()
+                [Op.between]: [
+                    today.subtract(29, 'day').startOf('day').toDate(),
+                    today.endOf('day').toDate()
+                ]
             };
         } else if (dateRange === '30-59') {
             whereClause.collection_date = {
                 [Op.between]: [
-                    today.subtract(59, 'day').toDate(),
-                    today.subtract(30, 'day').toDate()
+                    today.subtract(59, 'day').startOf('day').toDate(),
+                    today.subtract(30, 'day').endOf('day').toDate()
                 ]
             };
         } else if (dateRange === '60-89') {
             whereClause.collection_date = {
                 [Op.between]: [
-                    today.subtract(89, 'day').toDate(),
-                    today.subtract(60, 'day').toDate()
+                    today.subtract(89, 'day').startOf('day').toDate(),
+                    today.subtract(60, 'day').endOf('day').toDate()
                 ]
             };
         } else if (dateRange === '90-119') {
             whereClause.collection_date = {
                 [Op.between]: [
-                    today.subtract(119, 'day').toDate(),
-                    today.subtract(90, 'day').toDate()
+                    today.subtract(119, 'day').startOf('day').toDate(),
+                    today.subtract(90, 'day').endOf('day').toDate()
                 ]
             };
-        } else if (dateRange === '120+') {
+        } else if (dateRange === '120') {
             whereClause.collection_date = {
-                [Op.lte]: today.subtract(120, 'day').toDate()
+                [Op.lte]: today.subtract(120, 'day').endOf('day').toDate()
             };
         }
     }
