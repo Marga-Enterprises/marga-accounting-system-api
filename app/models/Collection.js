@@ -49,6 +49,7 @@ module.exports = (sequelize, DataTypes) => {
         ],
     });
 
+    // associations
     Collection.associate = (models) => {
         Collection.belongsTo(models.Billing, {
             foreignKey: 'collection_billing_id',
@@ -56,7 +57,14 @@ module.exports = (sequelize, DataTypes) => {
             onUpdate: 'CASCADE',
             onDelete: 'CASCADE',
         });
+
+        Collection.hasMany(models.Payment, {
+            foreignKey: 'payment_collection_id',
+            as: 'payments',
+            onUpdate: 'CASCADE',
+            onDelete: 'CASCADE',
+        });
     };
-    
+
     return Collection;
 };

@@ -3,15 +3,15 @@ exports.validatePaymentFields = (data) => {
     const {
         payment_collection_id,
         payment_amount,
+        payment_or_number,
         payment_mode,
-        payment_date,
     } = data;
 
     if (
         !payment_collection_id ||
         !payment_amount ||
-        !payment_mode ||
-        !payment_date
+        !payment_or_number ||
+        !payment_mode
     ) {
         throw new Error('All fields are required.');
     }
