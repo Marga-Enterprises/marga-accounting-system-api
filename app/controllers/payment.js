@@ -76,7 +76,7 @@ exports.deletePaymentById = async (req, res) => {
 
     try {
         // call the service to delete payment by ID
-        await deletePaymentByIdService(req.params.id);
+        await deletePaymentByIdService(req.params.paymentId);
 
         // send response indicating successful deletion
         return sendSuccess(res, {}, 'Payment deleted successfully.');
