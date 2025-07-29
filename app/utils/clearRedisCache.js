@@ -238,3 +238,37 @@ exports.clearCollectionsCache = async (collectionId) => {
     console.error("❌ Error clearing collections cache:", error);
   }
 };
+
+
+// clear payment cache
+exports.clearPaymentsCache = async (paymentId) => {
+  try {
+    console.log("🧹 Clearing payments cache...");
+
+    // Define the key patterns for payments
+    const pattern = `payments:page*`;
+    const filteredPattern = `payments:page*:search*`;
+    
+    // If a paymentId is provided, create a specific key pattern for that payment
+    const paymentKeys = paymentId ? await redisClient.keys(`payment*:${paymentId}`) : [];
+
+    // Fetch all keys matching the patterns
+    const allPaginatedKeys = await redisClient.keys(pattern);
+    const allFilteredKeys = await redisClient.keys(filteredPattern);
+
+    // Combine all keys into a unique set
+    const allKeys = [...new Set([...allPaginatedKeys, ...allFilteredKeys, ...paymentKeys])];
+
+    // If there are any keys to delete, proceed with deletion
+    if (allKeys.length > 0) {
+      await redisClient.del(allKeys);
+      console.log(`🗑️ Cleared ${allKeys.length} payments cache entries.`);
+    } else {
+      console.log("ℹ️ No matching payments cache keys found.");
+    }
+
+    console.log("✅ Payments cache cleared.");
+  } catch (error) {
+    console.error("❌ Error clearing payments cache:", error);
+  }
+};
