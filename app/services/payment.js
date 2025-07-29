@@ -45,16 +45,13 @@ exports.createPaymentService = async (data) => {
     // check if the payment is already existing by checking the Invoice AND OR Number
     const existingPayment = await Payment.findOne({
         where: {
-            [Op.and]: [
-                { payment_invoice_number: collection.collection_invoice_number },
-                { payment_or_number }
-            ]
+            payment_or_number
         }
     });
 
     if (existingPayment) {
         // if the payment exists, throw an error
-        const error = new Error('Payment with this invoice and OR number already exists.');
+        const error = new Error('Payment with this OR number already exists.');
         error.statusCode = 409; // Conflict
         throw error;
     } else {
