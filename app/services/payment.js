@@ -27,6 +27,7 @@ exports.createPaymentService = async (data) => {
         payment_cheque_number,
         payment_cheque_date,
         payment_online_transfer_reference_number,
+        payment_online_transfer_date
     } = data;
 
     // validate input
@@ -93,6 +94,7 @@ exports.createPaymentService = async (data) => {
             const onlineTransferData = {
                 id: newPayment.id,
                 payment_online_transfer_reference_number, 
+                payment_online_transfer_date,
             };
 
             // create a new PaymentOnlineTransfer record
