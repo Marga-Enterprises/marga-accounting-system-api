@@ -13,10 +13,6 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.DATE,
             allowNull: false,
         },
-        payment_cheque_bank_name: {
-            type: DataTypes.STRING(100),
-            allowNull: true,
-        },
     }, {
         tableName: 'tbl_payment_cheques',
         timestamps: true,

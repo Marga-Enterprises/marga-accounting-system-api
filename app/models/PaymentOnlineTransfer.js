@@ -9,10 +9,10 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.STRING(100),
             allowNull: false,
         },
-        payment_online_transfer_bank_name: {
-            type: DataTypes.STRING(100),
-            allowNull: true,
-        }
+        payment_online_transfer_date: {
+            type: DataTypes.DATE,
+            allowNull: false,
+        },
     }, {
         tableName: 'tbl_payment_online_transfers',
         timestamps: true,
