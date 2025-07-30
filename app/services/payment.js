@@ -146,7 +146,7 @@ exports.getAllPaymentsService = async (params) => {
     validateListPaymentsParams(params);
 
     // get query parameters
-    let { pageIndex, pageSize, search } = params;
+    let { pageIndex, pageSize, search, type } = params;
 
     // set default values for pagination
     pageIndex = parseInt(pageIndex) || 0;
@@ -155,7 +155,7 @@ exports.getAllPaymentsService = async (params) => {
     const limit = pageSize;
 
     // redis cache key
-    const cacheKey = `payments:${pageIndex}:${pageSize}:${search || ''}`;
+    const cacheKey = `payments:page:${pageIndex}:${pageSize}:${search || ''}:${type || ''}`;
     const cachedPayments = await redisClient.get(cacheKey);
 
     if (cachedPayments) {
@@ -163,16 +163,19 @@ exports.getAllPaymentsService = async (params) => {
     }
 
     // build where clause
-    const whereClause = {};
+    const whereClause = {
+        ...(type ? { payment_mode: type } : {}),
+        ...(search?.trim()
+            ? {
+                [Op.or]: [
+                    { payment_invoice_number: { [Op.like]: `%${search}%` } },
+                    { payment_or_number: { [Op.like]: `%${search}%` } },
+                    { '$collection.billing.department.client_department_name$': { [Op.like]: `%${search}%` } }
+                ]
+            }
+            : {})
+    };
 
-    // search by in
-    if (search) {
-        whereClause[Op.or] = [
-            { payment_invoice_number: { [Op.like]: `%${search}%` } },
-            { payment_or_number: { [Op.like]: `%${search}%` } },
-            { '$collection.billing.department.client_department_name$': { [Op.like]: `%${search}%` } }
-        ];
-    }
 
     // fetch payments with associated collection and client department
     const { count, rows } = await Payment.findAndCountAll({
