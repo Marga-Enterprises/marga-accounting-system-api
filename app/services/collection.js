@@ -17,7 +17,6 @@ const { clearCollectionsCache } = require('@utils/clearRedisCache');
 
 // redis
 const redisClient = require('@config/redis');
-const { raw } = require('mysql2');
 
 
 // create collection service
@@ -54,42 +53,26 @@ exports.createCollectionService = async (data) => {
 
 // Get all collections service
 exports.getAllCollectionsService = async (query) => {
-    // validate the query parameters
+    // Validate query parameters
     validateListCollectionsParams(query);
 
-    // get today from dayjs
+    // Extract and normalize query params
+    let { pageIndex, pageSize, search, status, dateRange } = query;
     const today = dayjs();
 
-    // get the query parameters
-    let { pageIndex, pageSize, search, status, dateRange } = query;
-
-    // set default values for pagination
     pageIndex = parseInt(pageIndex);
     pageSize = parseInt(pageSize);
     const offset = (pageIndex - 1) * pageSize;
     const limit = pageSize;
 
-    // check if the collections are cached in Redis
+    // Redis cache key
     const cacheKey = `collections:page:${pageIndex}:${pageSize}:search:${search || ''}:status:${status || ''}:range:${dateRange || ''}`;
     const cachedCollections = await redisClient.get(cacheKey);
+    if (cachedCollections) return JSON.parse(cachedCollections);
 
-    if (cachedCollections) {
-        // return cached collections if available
-        return JSON.parse(cachedCollections);
-    };
-
-    // build where clause
+    // Build dynamic where clause
     const whereClause = {};
 
-    // search by in
-    if (search) {
-        whereClause[Op.or] = [
-            { collection_invoice_number: { [Op.like]: `%${search}%` } },
-            { '$billing.department.client_department_name$': { [Op.like]: `%${search}%` } }
-        ];
-    }
-
-    // filter by status
     if (status) {
         whereClause.collection_status = status;
     }
@@ -137,26 +120,49 @@ exports.getAllCollectionsService = async (query) => {
         }
     }
 
+    // Add search condition (across local + foreign fields)
+    if (search) {
+        whereClause[Op.or] = [
+            { collection_invoice_number: { [Op.like]: `%${search}%` } },
+            { '$billing.department.client_department_name$': { [Op.like]: `%${search}%` } }
+        ];
+    }
+
     // fetch total collection amount
     const collectionTotalAmount = await Collection.findOne({
         attributes: [[Sequelize.fn('SUM', Sequelize.col('collection_amount')), 'totalAmount']],
         where: whereClause,
-        raw: true
-    });
-
-    // fetch collections from the database
-    const { count, rows } = await Collection.findAndCountAll({
-        where: whereClause,
-        offset,
-        limit,
         include: [
             {
                 model: Billing,
                 as: 'billing',
+                required: true,
+                include: [
+                    {
+                        model: ClientDepartment,
+                        as: 'department',
+                        required: true
+                    }
+                ]
+            }
+        ],
+        raw: true,
+        subQuery: false
+    });
+
+
+    // Fetch from DB
+    const { count, rows } = await Collection.findAndCountAll({
+        where: whereClause,
+        include: [
+            {
+                model: Billing,
+                as: 'billing',
+                required: true,
                 attributes: [
-                    'id', 
-                    'billing_invoice_number', 
-                    'billing_total_amount', 
+                    'id',
+                    'billing_invoice_number',
+                    'billing_total_amount',
                     'billing_department_id',
                     'billing_type'
                 ],
@@ -165,24 +171,24 @@ exports.getAllCollectionsService = async (query) => {
                         model: ClientDepartment,
                         as: 'department',
                         attributes: ['client_department_name'],
+                        required: true
                     }
-                ],
-                required: true,
+                ]
             }
         ],
+        offset,
+        limit,
         order: [
             [Sequelize.col('billing.department.client_department_name'), 'ASC'],
         ],
         subQuery: false
     });
 
-    // calculate total pages
     const totalPages = Math.ceil(count / pageSize);
 
     // ensure collectionTotalAmount is parsed correctly
     const totalCollectionAmount = parseFloat(collectionTotalAmount.totalAmount || 0);
 
-    // prepare the response object
     const response = {
         pageIndex,
         pageSize,
@@ -192,10 +198,7 @@ exports.getAllCollectionsService = async (query) => {
         collections: rows,
     };
 
-    // cache the collections data in Redis
     await redisClient.set(cacheKey, JSON.stringify(response), 'EX', 3600);
-
-    // return the response
     return response;
 };
 
