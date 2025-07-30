@@ -77,6 +77,7 @@ exports.getAllCollectionsService = async (query) => {
         whereClause.collection_status = status;
     }
 
+    // filter by collection date range
     if (dateRange) {
         // Only force status to 'pending' if status is not explicitly set
         if (!status) {
@@ -131,8 +132,24 @@ exports.getAllCollectionsService = async (query) => {
     const collectionTotalAmount = await Collection.findOne({
         attributes: [[Sequelize.fn('SUM', Sequelize.col('collection_amount')), 'totalAmount']],
         where: whereClause,
-        raw: true
+        include: [
+            {
+                model: Billing,
+                as: 'billing',
+                required: true,
+                include: [
+                    {
+                        model: ClientDepartment,
+                        as: 'department',
+                        required: true
+                    }
+                ]
+            }
+        ],
+        raw: true,
+        subQuery: false
     });
+
 
     // Fetch from DB
     const { count, rows } = await Collection.findAndCountAll({
@@ -161,8 +178,10 @@ exports.getAllCollectionsService = async (query) => {
         ],
         offset,
         limit,
-        order: [['createdAt', 'DESC']],
-        subQuery: false // important for deep nested where filtering
+        order: [
+            [Sequelize.col('billing.department.client_department_name'), 'ASC'],
+        ],
+        subQuery: false
     });
 
     const totalPages = Math.ceil(count / pageSize);
@@ -176,7 +195,7 @@ exports.getAllCollectionsService = async (query) => {
         totalRecords: count,
         totalPages,
         totalCollectionAmount,
-        collections: rows
+        collections: rows,
     };
 
     await redisClient.set(cacheKey, JSON.stringify(response), 'EX', 3600);
