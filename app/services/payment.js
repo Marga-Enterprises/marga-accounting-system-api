@@ -1,5 +1,13 @@
 // models and sequelize imports
-const { Payment, PaymentCheque, PaymentOnlineTransfer, Collection, ClientDepartment, Billing } = require('@models');
+const { 
+    Payment, 
+    PaymentCheque,
+    PaymentPDC, 
+    PaymentOnlineTransfer, 
+    Collection, 
+    ClientDepartment, 
+    Billing 
+} = require('@models');
 const { Op } = require('sequelize');
 
 // validator functions
@@ -27,7 +35,11 @@ exports.createPaymentService = async (data) => {
         payment_cheque_number,
         payment_cheque_date,
         payment_online_transfer_reference_number,
-        payment_online_transfer_date
+        payment_online_transfer_date,
+        payment_pdc_number,
+        payment_pdc_date,
+        payment_pdc_deposit_date,
+        payment_pdc_credit_date
     } = data;
 
     // validate input
@@ -96,6 +108,23 @@ exports.createPaymentService = async (data) => {
 
             // create a new PaymentOnlineTransfer record
             await PaymentOnlineTransfer.create(onlineTransferData);
+
+            // update the collection status to 'paid'
+            await Collection.update(
+                { collection_status: 'paid' },
+                { where: { id: payment_collection_id } }
+            );
+        } else if (newPayment.payment_mode === 'pdc') {
+            const pdcData = {
+                id: newPayment.id,
+                payment_pdc_number,
+                payment_pdc_date,
+                payment_pdc_deposit_date,
+                payment_pdc_credit_date,
+            };
+
+            // create a new PaymentPDC record
+            await PaymentPDC.create(pdcData);
 
             // update the collection status to 'paid'
             await Collection.update(
