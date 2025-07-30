@@ -130,26 +130,29 @@ exports.getAllCollectionsService = async (query) => {
 
     // fetch total collection amount
     const collectionTotalAmount = await Collection.findOne({
-        attributes: [[Sequelize.fn('SUM', Sequelize.col('collection_amount')), 'totalAmount']],
+        attributes: [
+            [Sequelize.fn('SUM', Sequelize.col('collection_amount')), 'totalAmount']
+        ],
         where: whereClause,
         include: [
             {
-                model: Billing,
-                as: 'billing',
+            model: Billing,
+            as: 'billing',
+            required: true,
+            attributes: [], // ✅ prevent GROUP BY issue
+            include: [
+                {
+                model: ClientDepartment,
+                as: 'department',
                 required: true,
-                include: [
-                    {
-                        model: ClientDepartment,
-                        as: 'department',
-                        required: true
-                    }
-                ]
+                attributes: [] // ✅ prevent GROUP BY issue
+                }
+            ]
             }
         ],
         raw: true,
         subQuery: false
     });
-
 
     // Fetch from DB
     const { count, rows } = await Collection.findAndCountAll({

@@ -244,17 +244,19 @@ exports.getAllBillingsService = async (query) => {
         where: whereClause,
         include: [
             {
-                model: ClientDepartment,
-                as: 'department',
-                required: false,
-                attributes: ['client_department_name']
+            model: ClientDepartment,
+            as: 'department',
+            required: true, // make sure this is true for filtering
+            attributes: [], // ✅ omit attributes to avoid triggering GROUP BY rules
             }
         ],
         attributes: [
             [Sequelize.fn('SUM', Sequelize.col('billing_total_amount')), 'total_billing_amount'],
         ],
         raw: true,
+        subQuery: false
     });
+
 
     const { count, rows } = await Billing.findAndCountAll({
         where: whereClause,
