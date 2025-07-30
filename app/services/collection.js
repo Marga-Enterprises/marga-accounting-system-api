@@ -17,6 +17,7 @@ const { clearCollectionsCache } = require('@utils/clearRedisCache');
 
 // redis
 const redisClient = require('@config/redis');
+const { raw } = require('mysql2');
 
 
 // create collection service
@@ -136,6 +137,13 @@ exports.getAllCollectionsService = async (query) => {
         }
     }
 
+    // fetch total collection amount
+    const collectionTotalAmount = await Collection.findOne({
+        attributes: [[Sequelize.fn('SUM', Sequelize.col('collection_amount')), 'totalAmount']],
+        where: whereClause,
+        raw: true
+    });
+
     // fetch collections from the database
     const { count, rows } = await Collection.findAndCountAll({
         where: whereClause,
@@ -171,12 +179,16 @@ exports.getAllCollectionsService = async (query) => {
     // calculate total pages
     const totalPages = Math.ceil(count / pageSize);
 
+    // ensure collectionTotalAmount is parsed correctly
+    const totalCollectionAmount = parseFloat(collectionTotalAmount.totalAmount || 0);
+
     // prepare the response object
     const response = {
         pageIndex,
         pageSize,
         totalRecords: count,
         totalPages,
+        totalCollectionAmount,
         collections: rows,
     };
 
