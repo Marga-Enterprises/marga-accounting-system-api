@@ -42,107 +42,101 @@ exports.createPaymentService = async (data) => {
         payment_pdc_credit_date
     } = data;
 
-    // validate input
+    // validate input fields
     validatePaymentFields(data);
 
-    // check if collection is present
-    const collection = await Collection.findOne({ where: { id: payment_collection_id } });
+    // convert payment amount to a number with two decimal places
+    const amount = parseFloat(payment_amount).toFixed(2);
 
+    // check if collection exists
+    const collection = await Collection.findOne({ where: { id: payment_collection_id } });
     if (!collection) {
-        const error = new Error ('Collection not found')
-        error.statusCode = 404
+        const error = new Error('Collection not found');
+        error.statusCode = 404;
         throw error;
     }
 
-    // check if the payment is already existing by checking the Invoice AND OR Number
-    const existingPayment = await Payment.findOne({
-        where: {
-            payment_or_number
-        }
+    // check for existing payment using OR number
+    const existingPayment = await Payment.findOne({ where: { payment_or_number } });
+    if (existingPayment) {
+        const error = new Error('Payment with this OR number already exists.');
+        error.statusCode = 409;
+        throw error;
+    }
+
+    // create new payment
+    const newPayment = await Payment.create({
+        payment_collection_id,
+        payment_invoice_number: collection.collection_invoice_number,
+        payment_or_number,
+        payment_amount: amount,
+        payment_mode,
+        payment_remarks,
+        payment_date: new Date(),
     });
 
-    if (existingPayment) {
-        // if the payment exists, throw an error
-        const error = new Error('Payment with this OR number already exists.');
-        error.statusCode = 409; // Conflict
-        throw error;
-    } else {
-        // create a new payment
-        const newPayment = await Payment.create({
-            payment_collection_id,
-            payment_invoice_number: collection.collection_invoice_number,
-            payment_or_number,
-            payment_amount,
-            payment_mode,
-            payment_remarks,
-            payment_date: new Date(), // assuming current date for the payment date
-        });
+    // just in case partial payment is made
+    let partialPayment = 0;
 
-        if (newPayment.payment_mode === 'cash') {
-            // update the collection status to 'paid'
-            await Collection.update(
-                { collection_status: 'paid' },
-                { where: { id: payment_collection_id } }
-            );
-        } else if (newPayment.payment_mode === 'cheque') {
-            const chequeData = {
+    // handle additional data based on payment mode
+    switch (payment_mode) {
+        case 'cash':
+            // nothing extra needed
+            break;
+
+        case 'cheque':
+            await PaymentCheque.create({
                 id: newPayment.id,
                 payment_cheque_number,
                 payment_cheque_date,
-            };
+            });
+            break;
 
-            // create a new PaymentCheque record
-            await PaymentCheque.create(chequeData);
-
-            // update the collection status to 'paid'
-            await Collection.update(
-                { collection_status: 'paid' },
-                { where: { id: payment_collection_id } }
-            );
-        } else if (newPayment.payment_mode === 'online_transfer') {
-            const onlineTransferData = {
+        case 'online_transfer':
+            await PaymentOnlineTransfer.create({
                 id: newPayment.id,
-                payment_online_transfer_reference_number, 
+                payment_online_transfer_reference_number,
                 payment_online_transfer_date,
-            };
+            });
+            break;
 
-            // create a new PaymentOnlineTransfer record
-            await PaymentOnlineTransfer.create(onlineTransferData);
-
-            // update the collection status to 'paid'
-            await Collection.update(
-                { collection_status: 'paid' },
-                { where: { id: payment_collection_id } }
-            );
-        } else if (newPayment.payment_mode === 'pdc') {
-            const pdcData = {
+        case 'pdc':
+            await PaymentPDC.create({
                 id: newPayment.id,
                 payment_pdc_number,
                 payment_pdc_date,
                 payment_pdc_deposit_date,
                 payment_pdc_credit_date,
-            };
+            });
+            break;
 
-            // create a new PaymentPDC record
-            await PaymentPDC.create(pdcData);
-
-            // update the collection status to 'paid'
-            await Collection.update(
-                { collection_status: 'paid' },
-                { where: { id: payment_collection_id } }
-            );
-        } else {
+        default:
             const error = new Error('Invalid payment mode');
-            error.statusCode = 400; // Bad Request
+            error.statusCode = 400; 
             throw error;
-        }
-
-        // clear cache for payments and collections
-        await clearPaymentsCache();
-        await clearCollectionsCache();
-
-        return newPayment;
     }
+
+    // update the collection status based on payment amount
+    if (collection.collection_amount > amount) {
+        partialPayment = amount;
+        const newCollectionAmount = (collection.collection_amount || 0) - amount;
+
+        await Collection.update(
+            { collection_amount: newCollectionAmount },
+            { where: { id: payment_collection_id } }
+        )
+    } else {
+        await Collection.update(
+            { collection_status: 'paid' },
+            { where: { id: payment_collection_id } }
+        );
+    }
+
+    // clear caches
+    await clearPaymentsCache();
+    await clearCollectionsCache();
+
+    return newPayment;
 };
 
 

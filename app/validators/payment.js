@@ -14,6 +14,8 @@ exports.validatePaymentFields = (data) => {
         !payment_mode
     ) {
         throw new Error('All fields are required.');
+    } else if (isNaN(payment_amount) || payment_amount <= 0) {
+        throw new Error('Invalid payment amount.');
     }
 
     return true;

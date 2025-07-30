@@ -13,7 +13,6 @@ module.exports = (sequelize, DataTypes) => {
         payment_invoice_number: {
             type: DataTypes.STRING(100),
             allowNull: false,
-            unique: true,
         },
         payment_or_number: {
             type: DataTypes.STRING(100),
@@ -45,13 +44,13 @@ module.exports = (sequelize, DataTypes) => {
         underscored: true,
         indexes: [
             {
-                name: 'idx_payment_collection_id',
-                fields: ['payment_collection_id'],
+                name: 'idx_payment_or_number',
+                fields: ['payment_or_number'],
             },
             {
-                name: 'idx_payment_mode',
-                fields: ['payment_mode'],
-            }
+                name: 'idx_payment_invoice_number',
+                fields: ['payment_invoice_number'],
+            },
         ],
     });
 
