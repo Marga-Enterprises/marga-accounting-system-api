@@ -17,7 +17,6 @@ module.exports = (sequelize, DataTypes) => {
         payment_or_number: {
             type: DataTypes.STRING(100),
             allowNull: false,
-            unique: true,
         },
         payment_amount: {
             type: DataTypes.DECIMAL(10, 2),
@@ -35,6 +34,11 @@ module.exports = (sequelize, DataTypes) => {
         payment_remarks: {
             type: DataTypes.STRING(255),
             allowNull: true,
+        },
+        payment_is_cancelled: {
+            type: DataTypes.BOOLEAN,
+            allowNull: false,
+            defaultValue: false,
         },
     }, {
         tableName: 'tbl_payments',

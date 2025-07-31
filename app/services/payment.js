@@ -45,9 +45,6 @@ exports.createPaymentService = async (data) => {
     // validate input fields
     validatePaymentFields(data);
 
-    // convert payment amount to a number with two decimal places
-    const amount = parseFloat(payment_amount).toFixed(2);
-
     // check if collection exists
     const collection = await Collection.findOne({ where: { id: payment_collection_id } });
     if (!collection) {
@@ -64,19 +61,21 @@ exports.createPaymentService = async (data) => {
         throw error;
     }
 
+    // Convert to numbers (keep as numbers for logic)
+    const parsedPaymentAmount = parseFloat(payment_amount);
+    const collectionBalance = parseFloat(collection.collection_balance);
+    const collectionAmount = parseFloat(collection.collection_amount);
+
     // create new payment
     const newPayment = await Payment.create({
         payment_collection_id,
         payment_invoice_number: collection.collection_invoice_number,
         payment_or_number,
-        payment_amount: amount,
+        payment_amount: parsedPaymentAmount,
         payment_mode,
         payment_remarks,
         payment_date: new Date(),
     });
-
-    // just in case partial payment is made
-    let partialPayment = 0;
 
     // handle additional data based on payment mode
     switch (payment_mode) {
@@ -116,20 +115,45 @@ exports.createPaymentService = async (data) => {
             throw error;
     }
 
-    // update the collection status based on payment amount
-    if (collection.collection_amount > amount) {
-        partialPayment = amount;
-        const newCollectionAmount = (collection.collection_amount || 0) - amount;
+    // Update the collection status and/or balance based on the incoming payment amount
+    if (collectionBalance === 0.00) {
+        // This is the first payment or collection has no recorded balance yet
 
-        await Collection.update(
-            { collection_amount: newCollectionAmount },
-            { where: { id: payment_collection_id } }
-        )
+        if (collectionAmount > parsedPaymentAmount) {
+            // Partial payment: compute and set the new balance
+            const collectionNewBalance = (collectionAmount || 0) - parsedPaymentAmount;
+
+            await Collection.update(
+                { collection_balance: collectionNewBalance },
+                { where: { id: payment_collection_id } }
+            );
+        } else {
+            // Full payment or overpayment: mark collection as fully paid
+            await Collection.update(
+                { collection_status: 'paid' },
+                { where: { id: payment_collection_id } }
+            );
+        }
     } else {
-        await Collection.update(
-            { collection_status: 'paid' },
-            { where: { id: payment_collection_id } }
-        );
+        // This is a succeeding payment, collectionBalance already has a value
+        const collectionNewBalance = (collectionBalance || 0) - parsedPaymentAmount;
+
+        if (collectionBalance > parsedPaymentAmount) {
+            // Partial payment again: update the remaining balance
+            await Collection.update(
+                { collection_balance: collectionNewBalance },
+                { where: { id: payment_collection_id } }
+            );
+        } else {
+            // Final payment: balance is fully paid or overpaid, mark as paid
+            await Collection.update(
+                { 
+                    collection_status: 'paid', 
+                    collection_balance: collectionNewBalance <  0.00 ? 0.00 : collectionNewBalance 
+                },
+                { where: { id: payment_collection_id } }
+            );
+        }
     }
 
     // clear caches
@@ -301,3 +325,68 @@ exports.deletePaymentByIdService = async (paymentId) => {
 
     return { message: 'Payment deleted successfully' };
 };
+
+
+// cancel payment service
+exports.cancelPaymentService = async (paymentId) => {
+    // validate payment ID
+    validatePaymentId(paymentId);
+
+    // get the existing payment 
+    const payment = await Payment.findByPk(paymentId);
+
+    // check if payment exists
+    if (!payment) {
+        const Error = new Error('Payment not found');
+        Error.statusCode = 404; // Not Found
+        throw Error;
+    }
+
+    // get the collection associated with the payment
+    const collection = await Collection.findByPk(payment.payment_collection_id);
+
+    // check if collection exists
+    if (!collection) {
+        const Error = new Error('Collection not found');
+        Error.statusCode = 404; // Not Found
+        throw Error;
+    }
+
+    // parse the payment amount, collection balance, and collection amount
+    const paymentAmount = parseFloat(payment.payment_amount);
+    const collectionBalance = parseFloat(collection.collection_balance);
+    const collectionAmount = parseFloat(collection.collection_amount);
+
+    // set the payment_is_cancelled field to true and set the collection status to 'pending'
+    await payment.update({ payment_is_cancelled: true });
+
+    // check if the collection amount is equal to the payment amount
+    if (collectionAmount === paymentAmount) {
+        await Collection.update(
+            { collection_status: 'pending' },
+            { where: { id: payment.payment_collection_id } }
+        );
+    } else {
+        if (collectionBalance === 0.00) {
+            // If the collection balance is zero, it means this was the first payment
+            await Collection.update(
+                { collection_balance: collectionAmount - paymentAmount },
+                { where: { id: payment.payment_collection_id } }
+            );
+        } else {
+            // If there are existing payments, adjust the balance accordingly
+            const collectionNewBalance = collectionBalance + paymentAmount;
+
+            await Collection.update(
+                { collection_balance: collectionNewBalance },
+                { where: { id: payment.payment_collection_id } }
+            );
+        }
+    };
+
+    // clear cache for payments and collections
+    await clearPaymentsCache(collection.id);
+    await clearCollectionsCache(paymentId);
+
+    return { message: 'Payment cancelled successfully' };
+}
