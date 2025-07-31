@@ -1,5 +1,5 @@
 module.exports = (sequelize, DataTypes) => {
-    const PaymentCheque = sequelize.define('PaymentCheque', {
+    const PaymentPDC = sequelize.define('PaymentPDC', {
         id: {
             type: DataTypes.INTEGER(11),
             primaryKey: true,
@@ -27,8 +27,8 @@ module.exports = (sequelize, DataTypes) => {
         underscored: true,
     });
 
-    PaymentCheque.associate = (models) => {
-        PaymentCheque.belongsTo(models.Payment, {
+    PaymentPDC.associate = (models) => {
+        PaymentPDC.belongsTo(models.Payment, {
             foreignKey: 'id',
             as: 'payment',
             onDelete: 'CASCADE',
@@ -36,5 +36,5 @@ module.exports = (sequelize, DataTypes) => {
         });
     };
 
-    return PaymentCheque;
+    return PaymentPDC;
 };
