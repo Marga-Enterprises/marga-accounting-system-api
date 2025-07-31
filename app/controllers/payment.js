@@ -11,7 +11,8 @@ const {
     createPaymentService,
     getAllPaymentsService,
     getPaymentByIdService,
-    deletePaymentByIdService
+    deletePaymentByIdService,
+    cancelPaymentService
 } = require('@services/payment');
 
 
@@ -82,6 +83,24 @@ exports.deletePaymentById = async (req, res) => {
         return sendSuccess(res, {}, 'Payment deleted successfully.');
     } catch (error) {
         console.error('Error deleting payment by ID:', error);
+        return sendError(res, '', error.message, error.status);
+    }
+};
+
+
+// cancel payment by ID
+exports.cancelPayment = async (req, res) => {
+    const token = getToken(req.headers);
+    if (!token) return sendUnauthorizedError(res, '', 'You are not logged in.');
+
+    try {
+        // call the service to cancel payment
+        const result = await cancelPaymentService(req.params.paymentId);
+
+        // send response indicating successful cancellation
+        return sendSuccess(res, result, 'Payment cancelled successfully.');
+    } catch (error) {
+        console.error('Error cancelling payment:', error);
         return sendError(res, '', error.message, error.status);
     }
 };

@@ -136,18 +136,18 @@ exports.getAllCollectionsService = async (query) => {
         where: whereClause,
         include: [
             {
-            model: Billing,
-            as: 'billing',
-            required: true,
-            attributes: [], // ✅ prevent GROUP BY issue
-            include: [
-                {
-                model: ClientDepartment,
-                as: 'department',
+                model: Billing,
+                as: 'billing',
                 required: true,
-                attributes: [] // ✅ prevent GROUP BY issue
-                }
-            ]
+                attributes: [], // ✅ prevent GROUP BY issue
+                include: [
+                    {
+                        model: ClientDepartment,
+                        as: 'department',
+                        required: true,
+                        attributes: [] // ✅ prevent GROUP BY issue
+                    }
+                ]
             }
         ],
         raw: true,

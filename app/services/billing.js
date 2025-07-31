@@ -232,8 +232,8 @@ exports.getAllBillingsService = async (query) => {
         ...(search
             ? {
                 [Op.or]: [
-                { billing_invoice_number: { [Op.like]: `%${search}%` } },
-                { '$department.client_department_name$': { [Op.like]: `%${search}%` } }
+                    { billing_invoice_number: { [Op.like]: `%${search}%` } },
+                    { '$department.client_department_name$': { [Op.like]: `%${search}%` } }
                 ]
             }
             : {})
@@ -242,18 +242,18 @@ exports.getAllBillingsService = async (query) => {
     // total for the month result
     const totalForMonthResult = await Billing.findOne({
         where: whereClause,
-        include: [
-            {
-            model: ClientDepartment,
-            as: 'department',
-            required: true, // make sure this is true for filtering
-            attributes: [], // ✅ omit attributes to avoid triggering GROUP BY rules
-            }
-        ],
-        attributes: [
-            [Sequelize.fn('SUM', Sequelize.col('billing_total_amount')), 'total_billing_amount'],
-        ],
-        raw: true,
+            include: [
+                {
+                    model: ClientDepartment,
+                    as: 'department',
+                    required: true, // make sure this is true for filtering
+                    attributes: [], // ✅ omit attributes to avoid triggering GROUP BY rules
+                }
+            ],
+            attributes: [
+                [Sequelize.fn('SUM', Sequelize.col('billing_total_amount')), 'total_billing_amount'],
+            ],
+            raw: true,
         subQuery: false
     });
 
