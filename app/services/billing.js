@@ -31,6 +31,7 @@ exports.createBillingService = async (data) => {
         billing_discount,
         billing_month,
         billing_year,
+        billing_date,
         billing_type
     } = data;
 
@@ -53,6 +54,7 @@ exports.createBillingService = async (data) => {
                 billing_month,
                 billing_year,
                 billing_type,
+                billing_date,
                 billing_is_cancelled: false,
             });
 
@@ -84,6 +86,7 @@ exports.createBillingService = async (data) => {
         billing_month,
         billing_year,
         billing_type,
+        billing_date,
         billing_department_id,
         billing_client_id,
     });
@@ -93,7 +96,7 @@ exports.createBillingService = async (data) => {
         collection_billing_id: newBilling.id,
         collection_invoice_number: newBilling.billing_invoice_number,
         collection_amount: newBilling.billing_total_amount,
-        collection_date: new Date(), 
+        collection_date: newBilling.billing_date, 
         collection_remarks: '' 
     })
 
@@ -169,7 +172,7 @@ exports.createBulkBillingsService = async (data) => {
 
     // create billings in bulk and saving the department ids
     const newBillings = await Billing.bulkCreate(
-        bulkDataArray.map(billing => {
+        bulkDataArray.map((billing, index) => {
             const match = clientDepartmentMap[normalize(billing.billing_client_department_name)];
 
             return {
@@ -185,8 +188,8 @@ exports.createBulkBillingsService = async (data) => {
         collection_billing_id: billing.id,
         collection_invoice_number: billing.billing_invoice_number,
         collection_amount: billing.billing_total_amount,
-        collection_date: new Date(), // current date
-        collection_remarks: '' // default remarks
+        collection_date: billing.billing_date,
+        collection_remarks: ''
     })));
 
     // clear the billings cache
