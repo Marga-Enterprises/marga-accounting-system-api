@@ -45,8 +45,8 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.DATE,
             allowNull: false,
         },
-        payment_or_date: {
-            type: DataTypes.DATE,
+        payment_or_number: {
+            type: DataTypes.STRING(100),
             allowNull: false,
         },
         payment_remarks: {
