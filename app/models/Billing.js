@@ -54,6 +54,10 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.STRING(50),
             allowNull: false,
         },
+        billing_date: {
+            type: DataTypes.DATE,
+            allowNull: false
+        },
         billing_is_cancelled: {
             type: DataTypes.BOOLEAN,
             allowNull: false,
