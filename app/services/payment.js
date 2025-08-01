@@ -29,7 +29,10 @@ exports.createPaymentService = async (data) => {
     const {
         payment_collection_id,
         payment_or_number,
+        payment_invoice_number,
         payment_amount,
+        payment_2307_amount,
+        payment_has_2307,
         payment_mode,
         payment_remarks,
         payment_cheque_number,
@@ -38,6 +41,7 @@ exports.createPaymentService = async (data) => {
         payment_online_transfer_date,
         payment_pdc_number,
         payment_pdc_date,
+        payment_date,
         payment_pdc_deposit_date,
         payment_pdc_credit_date
     } = data;
@@ -46,10 +50,25 @@ exports.createPaymentService = async (data) => {
     validatePaymentFields(data);
 
     // check if collection exists
-    const collection = await Collection.findOne({ where: { id: payment_collection_id } });
+    const collection = await Collection.findOne({ 
+        where: { id: payment_collection_id },
+        include: [{
+            model: Billing,
+            as: 'billing',
+            attributes: ['billing_date']
+        }]
+    });
+
     if (!collection) {
         const error = new Error('Collection not found');
         error.statusCode = 404;
+        throw error;
+    }
+
+    // check if the payment_invoice_number matches the collection's invoice number
+    if (collection.collection_invoice_number !== payment_invoice_number) {
+        const error = new Error('Payment invoice number does not match the collection invoice number.');
+        error.statusCode = 400; // Bad Request
         throw error;
     }
 
@@ -65,16 +84,21 @@ exports.createPaymentService = async (data) => {
     const parsedPaymentAmount = parseFloat(payment_amount);
     const collectionBalance = parseFloat(collection.collection_balance);
     const collectionAmount = parseFloat(collection.collection_amount);
+    const parsedPayment2307Amount = payment_2307_amount ? parseFloat(payment_2307_amount) : 0.00;
 
     // create new payment
     const newPayment = await Payment.create({
         payment_collection_id,
-        payment_invoice_number: collection.collection_invoice_number,
+        payment_invoice_number,
         payment_or_number,
         payment_amount: parsedPaymentAmount,
+        payment_amount_paid: parsedPaymentAmount - parsedPayment2307Amount,
+        payment_2307_amount: parsedPayment2307Amount,
+        payment_has_2307,
         payment_mode,
         payment_remarks,
-        payment_date: new Date(),
+        payment_date,
+        payment_invoice_date: collection.billing.billing_date,
     });
 
     // handle additional data based on payment mode

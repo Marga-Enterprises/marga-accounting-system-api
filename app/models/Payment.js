@@ -14,20 +14,38 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.STRING(100),
             allowNull: false,
         },
-        payment_or_number: {
-            type: DataTypes.STRING(100),
-            allowNull: false,
-        },
         payment_amount: {
             type: DataTypes.DECIMAL(10, 2),
             allowNull: false,
         },
+        payment_amount_paid: {
+            type: DataTypes.DECIMAL(10, 2),
+            allowNull: false,
+        },
+        payment_2307_amount: {
+            type: DataTypes.DECIMAL(10, 2),
+            defaultValue: 0.00,
+            allowNull: true,
+        },
+        payment_has_2307: {
+            type: DataTypes.BOOLEAN,
+            allowNull: false,
+            defaultValue: false,
+        },
         payment_mode: {
-            type: DataTypes.STRING(50), // Changed from ENUM to STRING
+            type: DataTypes.STRING(50),
             allowNull: false,
             defaultValue: 'cash',
         },
         payment_date: {
+            type: DataTypes.DATE,
+            allowNull: false,
+        },
+        payment_invoice_date: {
+            type: DataTypes.DATE,
+            allowNull: false,
+        },
+        payment_or_date: {
             type: DataTypes.DATE,
             allowNull: false,
         },
