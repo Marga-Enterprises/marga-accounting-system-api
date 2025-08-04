@@ -22,7 +22,7 @@ module.exports = (sequelize, DataTypes) => {
     PaymentCheque.associate = (models) => {
         PaymentCheque.belongsTo(models.Payment, {
             foreignKey: 'id',
-            as: 'payment',
+            as: 'cheque',
             onDelete: 'CASCADE',
             onUpdate: 'CASCADE',
         });

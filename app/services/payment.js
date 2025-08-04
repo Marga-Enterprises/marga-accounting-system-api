@@ -72,8 +72,14 @@ exports.createPaymentService = async (data) => {
         throw error;
     }
 
-    // check for existing payment using OR number
-    const existingPayment = await Payment.findOne({ where: { payment_or_number } });
+    // check for existing payment using OR number but if the payment_is_cancelled is true, allow it
+    const existingPayment = await Payment.findOne({
+        where: {
+            payment_or_number,
+            payment_is_cancelled: false
+        }
+    });
+
     if (existingPayment) {
         const error = new Error('Payment with this OR number already exists.');
         error.statusCode = 409;
@@ -249,6 +255,21 @@ exports.getAllPaymentsService = async (params) => {
                         ]
                     }
                 ]
+            },
+            {
+                model: PaymentCheque,
+                as: 'cheque',
+                attributes: ['payment_cheque_number', 'payment_cheque_date']
+            },
+            {
+                model: PaymentOnlineTransfer,
+                as: 'onlineTransfer',
+                attributes: ['payment_online_transfer_reference_number', 'payment_online_transfer_date']
+            },
+            {
+                model: PaymentPDC,
+                as: 'pdc',
+                attributes: ['payment_pdc_number', 'payment_pdc_date', 'payment_pdc_deposit_date', 'payment_pdc_credit_date']
             }
         ],
     });
