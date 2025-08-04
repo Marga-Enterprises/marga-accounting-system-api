@@ -70,24 +70,6 @@ exports.getPaymentById = async (req, res) => {
 };
 
 
-// delete payment by ID
-exports.deletePaymentById = async (req, res) => {
-    const token = getToken(req.headers);
-    if (!token) return sendUnauthorizedError(res, '', 'You are not logged in.');
-
-    try {
-        // call the service to delete payment by ID
-        await deletePaymentByIdService(req.params.paymentId);
-
-        // send response indicating successful deletion
-        return sendSuccess(res, {}, 'Payment deleted successfully.');
-    } catch (error) {
-        console.error('Error deleting payment by ID:', error);
-        return sendError(res, '', error.message, error.status);
-    }
-};
-
-
 // cancel payment by ID
 exports.cancelPayment = async (req, res) => {
     const token = getToken(req.headers);

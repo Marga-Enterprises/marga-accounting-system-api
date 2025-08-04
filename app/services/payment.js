@@ -322,35 +322,6 @@ exports.getPaymentByIdService = async (paymentId) => {
 };
 
 
-// delete payment by ID service
-exports.deletePaymentByIdService = async (paymentId) => {
-    // validate payment ID
-    validatePaymentId(paymentId);
-
-    // fetch the existing payment
-    const payment = await Payment.findByPk(paymentId);
-    if (!payment) {
-        const error = new Error('Payment not found');
-        error.statusCode = 404; // Not Found
-        throw error;
-    }
-
-    // update the collection status to 'pending' before deletion
-    await Collection.update(
-        { collection_status: 'pending' },
-        { where: { id: payment.payment_collection_id } }
-    );
-
-    // delete the payment
-    await payment.destroy();
-
-    // clear cache for payments
-    await clearPaymentsCache();
-
-    return { message: 'Payment deleted successfully' };
-};
-
-
 // cancel payment service
 exports.cancelPaymentService = async (paymentId) => {
     // validate payment ID
