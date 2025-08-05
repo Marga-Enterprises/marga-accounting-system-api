@@ -6,7 +6,8 @@ const {
     PaymentOnlineTransfer, 
     Collection, 
     ClientDepartment, 
-    Billing 
+    Billing,
+    Client 
 } = require('@models');
 const { Op } = require('sequelize');
 
@@ -43,18 +44,29 @@ exports.createPaymentService = async (data) => {
         payment_pdc_date,
         payment_date,
         payment_pdc_deposit_date,
-        payment_pdc_credit_date
+        payment_pdc_credit_date,
+        payment_client_tin,
     } = data;
 
-    // validate input fields
+    // Validate input
     validatePaymentFields(data);
 
-    // check if collection exists
-    const collection = await Collection.findOne({ 
+    // Retrieve collection and its relations
+    const collection = await Collection.findOne({
         where: { id: payment_collection_id },
         include: [{
             model: Billing,
             as: 'billing',
+            include: [{
+                model: ClientDepartment,
+                as: 'department',
+                include: [{
+                    model: Client,
+                    as: 'client',
+                    attributes: ['id', 'client_name', 'client_tin']
+                }],
+                attributes: ['client_department_name', 'client_department_address']
+            }],
             attributes: ['billing_date']
         }]
     });
@@ -65,14 +77,14 @@ exports.createPaymentService = async (data) => {
         throw error;
     }
 
-    // check if the payment_invoice_number matches the collection's invoice number
+    // Check invoice number match
     if (collection.collection_invoice_number !== payment_invoice_number) {
         const error = new Error('Payment invoice number does not match the collection invoice number.');
-        error.statusCode = 400; // Bad Request
+        error.statusCode = 400;
         throw error;
     }
 
-    // check for existing payment using OR number but if the payment_is_cancelled is true, allow it
+    // Check for duplicate OR number (unless cancelled)
     const existingPayment = await Payment.findOne({
         where: {
             payment_or_number,
@@ -86,13 +98,29 @@ exports.createPaymentService = async (data) => {
         throw error;
     }
 
-    // Convert to numbers (keep as numbers for logic)
+    // Check and update client TIN if needed
+    const client = collection.billing.department.client;
+    if (payment_client_tin && client) {
+        const existingTIN = client.client_tin?.trim() || '';
+        const incomingTIN = payment_client_tin.trim();
+
+        if (!existingTIN || existingTIN !== incomingTIN) {
+            await Client.update(
+                { client_tin: incomingTIN },
+                { where: { id: client.id } }
+            );
+            // Optional: update locally for downstream logic
+            client.client_tin = incomingTIN;
+        }
+    }
+
+    // Parse amounts
     const parsedPaymentAmount = parseFloat(payment_amount);
+    const parsedPayment2307Amount = payment_2307_amount ? parseFloat(payment_2307_amount) : 0.00;
     const collectionBalance = parseFloat(collection.collection_balance);
     const collectionAmount = parseFloat(collection.collection_amount);
-    const parsedPayment2307Amount = payment_2307_amount ? parseFloat(payment_2307_amount) : 0.00;
 
-    // create new payment
+    // Create main payment
     const newPayment = await Payment.create({
         payment_collection_id,
         payment_invoice_number,
@@ -107,10 +135,9 @@ exports.createPaymentService = async (data) => {
         payment_invoice_date: collection.billing.billing_date,
     });
 
-    // handle additional data based on payment mode
+    // Create sub-records based on payment mode
     switch (payment_mode) {
         case 'cash':
-            // nothing extra needed
             break;
 
         case 'cheque':
@@ -141,52 +168,45 @@ exports.createPaymentService = async (data) => {
 
         default:
             const error = new Error('Invalid payment mode');
-            error.statusCode = 400; 
+            error.statusCode = 400;
             throw error;
     }
 
-    // Update the collection status and/or balance based on the incoming payment amount
+    // Update collection balance or status
     if (collectionBalance === 0.00) {
-        // This is the first payment or collection has no recorded balance yet
+        const collectionNewBalance = collectionAmount - parsedPaymentAmount;
 
         if (collectionAmount > parsedPaymentAmount) {
-            // Partial payment: compute and set the new balance
-            const collectionNewBalance = (collectionAmount || 0) - parsedPaymentAmount;
-
             await Collection.update(
                 { collection_balance: collectionNewBalance },
                 { where: { id: payment_collection_id } }
             );
         } else {
-            // Full payment or overpayment: mark collection as fully paid
             await Collection.update(
                 { collection_status: 'paid' },
                 { where: { id: payment_collection_id } }
             );
         }
     } else {
-        // This is a succeeding payment, collectionBalance already has a value
-        const collectionNewBalance = (collectionBalance || 0) - parsedPaymentAmount;
+        const collectionNewBalance = collectionBalance - parsedPaymentAmount;
 
         if (collectionBalance > parsedPaymentAmount) {
-            // Partial payment again: update the remaining balance
             await Collection.update(
                 { collection_balance: collectionNewBalance },
                 { where: { id: payment_collection_id } }
             );
         } else {
-            // Final payment: balance is fully paid or overpaid, mark as paid
             await Collection.update(
-                { 
-                    collection_status: 'paid', 
-                    collection_balance: collectionNewBalance <  0.00 ? 0.00 : collectionNewBalance 
+                {
+                    collection_status: 'paid',
+                    collection_balance: collectionNewBalance < 0 ? 0.00 : collectionNewBalance
                 },
                 { where: { id: payment_collection_id } }
             );
         }
     }
 
-    // clear caches
+    // Clear caches
     await clearPaymentsCache();
     await clearCollectionsCache();
 
@@ -250,7 +270,14 @@ exports.getAllPaymentsService = async (params) => {
                             {
                                 model: ClientDepartment,
                                 as: 'department',
-                                attributes: ['client_department_name']
+                                include: [
+                                    {
+                                        model: Client,
+                                        as: 'client',
+                                        attributes: ['client_name', 'client_tin']
+                                    }
+                                ],
+                                attributes: ['client_department_name', 'client_department_address']
                             }
                         ]
                     }
