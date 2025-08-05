@@ -30,7 +30,7 @@ module.exports = (sequelize, DataTypes) => {
     PaymentPDC.associate = (models) => {
         PaymentPDC.belongsTo(models.Payment, {
             foreignKey: 'id',
-            as: 'payment',
+            as: 'pdc',
             onDelete: 'CASCADE',
             onUpdate: 'CASCADE',
         });

@@ -22,7 +22,7 @@ module.exports = (sequelize, DataTypes) => {
     PaymentOnlineTransfer.associate = (models) => {
         PaymentOnlineTransfer.belongsTo(models.Payment, {
             foreignKey: 'id',
-            as: 'payment',
+            as: 'onlineTransfer',
             onDelete: 'CASCADE',
             onUpdate: 'CASCADE',
         });

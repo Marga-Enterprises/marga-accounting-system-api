@@ -88,14 +88,21 @@ module.exports = (sequelize, DataTypes) => {
         // Subtype associations
         Payment.hasOne(models.PaymentCheque, {
             foreignKey: 'id',
-            as: 'chequeDetails',
+            as: 'cheque',
             onUpdate: 'CASCADE',
             onDelete: 'CASCADE',
         });
 
         Payment.hasOne(models.PaymentOnlineTransfer, {
             foreignKey: 'id',
-            as: 'onlineTransferDetails',
+            as: 'onlineTransfer',
+            onUpdate: 'CASCADE',
+            onDelete: 'CASCADE',
+        });
+
+        Payment.hasOne(models.PaymentPDC, {
+            foreignKey: 'id',
+            as: 'pdc',
             onUpdate: 'CASCADE',
             onDelete: 'CASCADE',
         });
