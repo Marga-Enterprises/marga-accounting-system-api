@@ -41,6 +41,14 @@ module.exports = (sequelize, DataTypes) => {
             type: DataTypes.DATE,
             allowNull: false,
         },
+        payment_posting_date: {
+            type: DataTypes.DATE,
+            allowNull: false,
+        },
+        payment_collection_date: {
+            type: DataTypes.DATE,
+            allowNull: false,
+        },
         payment_invoice_date: {
             type: DataTypes.DATE,
             allowNull: false,

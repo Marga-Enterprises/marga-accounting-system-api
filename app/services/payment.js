@@ -43,6 +43,8 @@ exports.createPaymentService = async (data) => {
         payment_pdc_number,
         payment_pdc_date,
         payment_date,
+        payment_posting_date,
+        payment_collection_date,
         payment_pdc_deposit_date,
         payment_pdc_credit_date,
         payment_client_tin,
@@ -132,6 +134,8 @@ exports.createPaymentService = async (data) => {
         payment_mode,
         payment_remarks,
         payment_date,
+        payment_posting_date,
+        payment_collection_date,
         payment_invoice_date: collection.billing.billing_date,
     });
 
