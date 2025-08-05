@@ -1,5 +1,5 @@
 // models and sequelize imports
-const { Collection, Billing, ClientDepartment } = require('@models');
+const { Collection, Billing, ClientDepartment, Client } = require('@models');
 const { Op, Sequelize } = require('sequelize');
 
 // dayjs for date manipulation
@@ -173,7 +173,14 @@ exports.getAllCollectionsService = async (query) => {
                     {
                         model: ClientDepartment,
                         as: 'department',
-                        attributes: ['client_department_name'],
+                        attributes: ['client_department_name', 'client_department_address'],
+                        include: [
+                            {
+                                model: Client,
+                                as: 'client',
+                                attributes: ['client_name', 'client_tin']
+                            }
+                        ],
                         required: true
                     }
                 ]
