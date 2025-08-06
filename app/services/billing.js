@@ -111,11 +111,10 @@ exports.createBillingService = async (data) => {
 };
 
 
-// service to bulk create billings
+// service to create bulk billings
 exports.createBulkBillingsService = async (data) => {
     const bulkDataArray = Object.values(data);
 
-    // validate input
     if (!Array.isArray(bulkDataArray) || bulkDataArray.length === 0) {
         const error = new Error('Invalid input data for bulk billing creation.');
         error.status = 400;
@@ -133,7 +132,6 @@ exports.createBulkBillingsService = async (data) => {
 
     const existingInvoiceSet = new Set(existingBillings.map(b => b.billing_invoice_number));
 
-    // Step 2: Filter out already existing ones
     const filteredBillings = bulkDataArray.filter(
         billing => !existingInvoiceSet.has(billing.billing_invoice_number)
     );
@@ -151,7 +149,7 @@ exports.createBulkBillingsService = async (data) => {
         };
     }
 
-    // Step 3: Prepare client department mapping
+    // Step 2: Prepare client department mapping
     const clientDepartmentIds = await ClientDepartment.findAll({
         where: {
             client_department_name: [...new Set(filteredBillings.map(b => b.billing_client_department_name))]
@@ -167,31 +165,43 @@ exports.createBulkBillingsService = async (data) => {
         clientDepartmentMap[normalize(dept.client_department_name)] = dept;
     }
 
-    // Step 4: Save filtered billings
-    const newBillings = await Billing.bulkCreate(
-        filteredBillings.map((billing) => {
-            const match = clientDepartmentMap[normalize(billing.billing_client_department_name)];
+    // Step 3: Process in chunks
+    const newBillings = [];
+    const newCollections = [];
 
-            return {
-                ...billing,
-                billing_department_id: match?.id || null,
-                billing_client_id: match?.client_department_client_id || null
-            };
-        })
-    );
+    for (let i = 0; i < filteredBillings.length; i += 10) {
+        const chunk = filteredBillings.slice(i, i + 10);
 
-    // Step 5: Create corresponding collections
-    const newCollections = await Collection.bulkCreate(
-        newBillings.map(billing => ({
-            collection_billing_id: billing.id,
-            collection_invoice_number: billing.billing_invoice_number,
-            collection_amount: billing.billing_total_amount,
-            collection_date: billing.billing_date,
-            collection_remarks: ''
-        }))
-    );
+        // Bulk create billings for this chunk
+        const chunkBillings = await Billing.bulkCreate(
+            chunk.map((billing) => {
+                const match = clientDepartmentMap[normalize(billing.billing_client_department_name)];
 
-    // Step 6: Clear caches
+                return {
+                    ...billing,
+                    billing_department_id: match?.id || null,
+                    billing_client_id: match?.client_department_client_id || null
+                };
+            })
+        );
+
+        newBillings.push(...chunkBillings);
+
+        // Bulk create collections for this chunk
+        const chunkCollections = await Collection.bulkCreate(
+            chunkBillings.map(billing => ({
+                collection_billing_id: billing.id,
+                collection_invoice_number: billing.billing_invoice_number,
+                collection_amount: billing.billing_total_amount,
+                collection_date: billing.billing_date,
+                collection_remarks: ''
+            }))
+        );
+
+        newCollections.push(...chunkCollections);
+    }
+
+    // Step 4: Clear caches
     await clearBillingsCache();
     await clearCollectionsCache();
 
