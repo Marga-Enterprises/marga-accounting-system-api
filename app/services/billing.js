@@ -122,57 +122,54 @@ exports.createBulkBillingsService = async (data) => {
         throw error;
     }
 
-    // validate each billing entry
-    /*data.forEach(billing => {
-        validateBillingFields(billing);
-    });*/
-
-    // check for existing billings by invoice number
+    // Step 1: Get existing invoice numbers
     const existingBillings = await Billing.findAll({
         where: {
             billing_invoice_number: bulkDataArray.map(b => b.billing_invoice_number)
-        }
-    });
-
-    if (existingBillings.length > 0) {
-        const existingInvoiceNumbers = existingBillings.map(b => b.billing_invoice_number);
-        const error = new Error(`Billings with invoice numbers ${existingInvoiceNumbers.join(', ')} already exist.`);
-        error.status = 409;
-        throw error;
-    };
-
-    // get the ids of client departments from billing_client_department_name
-    const clientDepartmentIds = await ClientDepartment.findAll({
-        where: {
-            client_department_name: [...new Set(bulkDataArray.map(b => b.billing_client_department_name))]
         },
-        attributes: [
-            'client_department_name',
-            'id',
-            'client_department_client_id'
-        ],
-        group: ['client_department_name'],
+        attributes: ['billing_invoice_number'],
         raw: true
     });
 
-    // loop through the client departments and map them to their ids
-    const clientDepartmentMap = {};
+    const existingInvoiceSet = new Set(existingBillings.map(b => b.billing_invoice_number));
 
-    const normalize = (str) => {
-        return str
-            ?.replace(/[\r\n\u00A0\u200B]/g, '')
-            .replace(/\s+/g, ' ')               
-            .trim()                             
-            .toLowerCase();                     
+    // Step 2: Filter out already existing ones
+    const filteredBillings = bulkDataArray.filter(
+        billing => !existingInvoiceSet.has(billing.billing_invoice_number)
+    );
+
+    const skippedBillings = bulkDataArray.filter(
+        billing => existingInvoiceSet.has(billing.billing_invoice_number)
+    );
+
+    if (filteredBillings.length === 0) {
+        return {
+            message: 'No new billings were created. All provided invoice numbers already exist.',
+            billings: [],
+            collections: [],
+            skipped: skippedBillings.map(b => b.billing_invoice_number)
         };
+    }
 
+    // Step 3: Prepare client department mapping
+    const clientDepartmentIds = await ClientDepartment.findAll({
+        where: {
+            client_department_name: [...new Set(filteredBillings.map(b => b.billing_client_department_name))]
+        },
+        attributes: ['client_department_name', 'id', 'client_department_client_id'],
+        raw: true
+    });
+
+    const normalize = (str) => str?.replace(/[\r\n\u00A0\u200B]/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+
+    const clientDepartmentMap = {};
     for (const dept of clientDepartmentIds) {
         clientDepartmentMap[normalize(dept.client_department_name)] = dept;
     }
 
-    // create billings in bulk and saving the department ids
+    // Step 4: Save filtered billings
     const newBillings = await Billing.bulkCreate(
-        bulkDataArray.map((billing, index) => {
+        filteredBillings.map((billing) => {
             const match = clientDepartmentMap[normalize(billing.billing_client_department_name)];
 
             return {
@@ -183,27 +180,27 @@ exports.createBulkBillingsService = async (data) => {
         })
     );
 
-    // create collections for each billing
-    const newCollections = await Collection.bulkCreate(newBillings.map(billing => ({
-        collection_billing_id: billing.id,
-        collection_invoice_number: billing.billing_invoice_number,
-        collection_amount: billing.billing_total_amount,
-        collection_date: billing.billing_date,
-        collection_remarks: ''
-    })));
+    // Step 5: Create corresponding collections
+    const newCollections = await Collection.bulkCreate(
+        newBillings.map(billing => ({
+            collection_billing_id: billing.id,
+            collection_invoice_number: billing.billing_invoice_number,
+            collection_amount: billing.billing_total_amount,
+            collection_date: billing.billing_date,
+            collection_remarks: ''
+        }))
+    );
 
-    // clear the billings cache
+    // Step 6: Clear caches
     await clearBillingsCache();
-
-    // clear the collections cache
     await clearCollectionsCache();
 
-    const response = {
+    return {
+        message: `${newBillings.length} new billings created.`,
         billings: newBillings,
-        collections: newCollections
+        collections: newCollections,
+        skipped: skippedBillings.map(b => b.billing_invoice_number)
     };
-    
-    return response;
 };
 
 
