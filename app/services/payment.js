@@ -87,7 +87,7 @@ exports.createPaymentService = async (data) => {
     }
 
     // Check for duplicate OR number (unless cancelled)
-    const existingPayment = await Payment.findOne({
+    /*const existingPayment = await Payment.findOne({
         where: {
             payment_or_number,
             payment_is_cancelled: false
@@ -98,7 +98,7 @@ exports.createPaymentService = async (data) => {
         const error = new Error('Payment with this OR number already exists.');
         error.statusCode = 409;
         throw error;
-    }
+    }*/
 
     // Check and update client TIN if needed
     const client = collection.billing.department.client;
