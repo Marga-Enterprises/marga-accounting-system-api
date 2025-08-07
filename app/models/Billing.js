@@ -84,15 +84,10 @@ module.exports = (sequelize, DataTypes) => {
             onUpdate: 'CASCADE',
             onDelete: 'RESTRICT',
         });
+        
         Billing.belongsTo(models.ClientDepartment, {
             foreignKey: 'billing_department_id',
             as: 'department',
-            onUpdate: 'CASCADE',
-            onDelete: 'RESTRICT',
-        });
-        Billing.belongsTo(models.ClientBranch, {
-            foreignKey: 'billing_branch_id',
-            as: 'branch',
             onUpdate: 'CASCADE',
             onDelete: 'RESTRICT',
         });

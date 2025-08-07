@@ -265,7 +265,10 @@ exports.getAllPaymentsService = async (params) => {
     // fetch payments with associated collection and client department
     const { count, rows } = await Payment.findAndCountAll({
         where: whereClause,
-        order: [['createdAt', 'DESC']],
+        order: [
+            ['payment_is_cancelled', 'ASC'], 
+            ['createdAt', 'DESC']           
+        ],
         offset,
         limit,
         include: [
