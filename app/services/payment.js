@@ -224,7 +224,7 @@ exports.getAllPaymentsService = async (params) => {
     validateListPaymentsParams(params);
 
     // get query parameters
-    let { pageIndex, pageSize, search, type } = params;
+    let { pageIndex, pageSize, search, type, startDate, endDate } = params;
 
     // set default values for pagination
     pageIndex = parseInt(pageIndex) || 0;
@@ -233,7 +233,7 @@ exports.getAllPaymentsService = async (params) => {
     const limit = pageSize;
 
     // redis cache key
-    const cacheKey = `payments:page:${pageIndex}:${pageSize}:${search || ''}:${type || ''}`;
+    const cacheKey = `payments:page:${pageIndex}:${pageSize}:${search || ''}:${type || ''}:${startDate || ''}:${endDate || ''}`;
     const cachedPayments = await redisClient.get(cacheKey);
 
     if (cachedPayments) {
@@ -251,7 +251,14 @@ exports.getAllPaymentsService = async (params) => {
                     { '$collection.billing.department.client_department_name$': { [Op.like]: `%${search}%` } }
                 ]
             }
-            : {})
+            : {}),
+        ...(startDate && endDate
+            ? {
+                payment_collection_date: {
+                    [Op.between]: [new Date(startDate), new Date(endDate)]
+                    }
+                }
+            : {}),
     };
 
 

@@ -247,7 +247,7 @@ exports.clearPaymentsCache = async (paymentId) => {
 
     // Define the key patterns for payments
     const pattern = `payments:page*`;
-    const filteredPattern = `payments:page*:search*:type*`;
+    const filteredPattern = `payments:page*:search*:type*:startDate*:endDate*`;
     
     // If a paymentId is provided, create a specific key pattern for that payment
     const paymentKeys = paymentId ? await redisClient.keys(`payment*:${paymentId}`) : [];
