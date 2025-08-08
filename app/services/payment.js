@@ -86,20 +86,6 @@ exports.createPaymentService = async (data) => {
         throw error;
     }
 
-    // Check for duplicate OR number (unless cancelled)
-    /*const existingPayment = await Payment.findOne({
-        where: {
-            payment_or_number,
-            payment_is_cancelled: false
-        }
-    });
-
-    if (existingPayment) {
-        const error = new Error('Payment with this OR number already exists.');
-        error.statusCode = 409;
-        throw error;
-    }*/
-
     // Check and update client TIN if needed
     const client = collection.billing.department.client;
     if (payment_client_tin && client) {
@@ -384,66 +370,227 @@ exports.getPaymentByIdService = async (paymentId) => {
 };
 
 
-// cancel payment service
-exports.cancelPaymentService = async (paymentId) => {
-    // validate payment ID
+//  update payment service
+exports.updatePaymentByIdService = async (paymentId, data) => {
+    // Destructure fields from data
+    const {
+        payment_or_number,
+        payment_invoice_number,
+        payment_amount,
+        payment_2307_amount,
+        payment_has_2307,
+        payment_mode,
+        payment_remarks,
+        payment_cheque_number,
+        payment_cheque_date,
+        payment_online_transfer_reference_number,
+        payment_online_transfer_date,
+        payment_pdc_number,
+        payment_pdc_date,
+        payment_pdc_deposit_date,
+        payment_pdc_credit_date,
+        payment_date,
+        payment_posting_date,
+        payment_collection_date,
+        payment_client_tin
+    } = data;
+
+    // Validate payment ID format
     validatePaymentId(paymentId);
 
-    // get the existing payment 
-    const payment = await Payment.findByPk(paymentId);
+    const transaction = await sequelize.transaction();
 
-    // check if payment exists
-    if (!payment) {
-        const Error = new Error('Payment not found');
-        Error.statusCode = 404; // Not Found
-        throw Error;
-    }
-
-    // get the collection associated with the payment
-    const collection = await Collection.findByPk(payment.payment_collection_id);
-
-    // check if collection exists
-    if (!collection) {
-        const Error = new Error('Collection not found');
-        Error.statusCode = 404; // Not Found
-        throw Error;
-    }
-
-    // parse the payment amount, collection balance, and collection amount
-    const paymentAmount = parseFloat(payment.payment_amount);
-    const collectionBalance = parseFloat(collection.collection_balance);
-    const collectionAmount = parseFloat(collection.collection_amount);
-
-    // set the payment_is_cancelled field to true and set the collection status to 'pending'
-    await payment.update({ payment_is_cancelled: true });
-
-    // check if the collection amount is equal to the payment amount
-    if (collectionAmount === paymentAmount) {
-        await Collection.update(
-            { collection_status: 'pending' },
-            { where: { id: payment.payment_collection_id } }
-        );
-    } else {
-        if (collectionBalance === 0.00) {
-            // If the collection balance is zero, it means this was the first payment
-            await Collection.update(
-                { collection_balance: collectionAmount - paymentAmount },
-                { where: { id: payment.payment_collection_id } }
-            );
-        } else {
-            // If there are existing payments, adjust the balance accordingly
-            const collectionNewBalance = collectionBalance + paymentAmount;
-
-            await Collection.update(
-                { collection_balance: collectionNewBalance },
-                { where: { id: payment.payment_collection_id } }
-            );
+    try {
+        const payment = await Payment.findByPk(paymentId, { transaction });
+        if (!payment) {
+            const error = new Error('Payment not found');
+            error.statusCode = 404;
+            throw error;
         }
-    };
 
-    // clear cache for payments and collections
-    await clearPaymentsCache(collection.id);
-    await clearCollectionsCache(paymentId);
+        const collection = await Collection.findByPk(payment.payment_collection_id, {
+            include: [{
+                model: Billing,
+                as: 'billing',
+                include: [{
+                    model: ClientDepartment,
+                    as: 'department',
+                    include: [{
+                        model: Client,
+                        as: 'client',
+                        attributes: ['id', 'client_tin']
+                    }]
+                }]
+            }],
+            transaction
+        });
 
-    return { message: 'Payment cancelled successfully' };
-}
+        if (!collection) {
+            const error = new Error('Collection not found');
+            error.statusCode = 404;
+            throw error;
+        }
+
+        // Update client TIN if needed
+        const client = collection.billing.department.client;
+        if (payment_client_tin && client) {
+            const existingTIN = client.client_tin?.trim() || '';
+            const incomingTIN = payment_client_tin.trim();
+            if (!existingTIN || existingTIN !== incomingTIN) {
+                await Client.update({ client_tin: incomingTIN }, { where: { id: client.id }, transaction });
+            }
+        }
+
+        const oldAmount = parseFloat(payment.payment_amount);
+        const newAmount = parseFloat(payment_amount);
+        const payment2307 = payment_2307_amount ? parseFloat(payment_2307_amount) : 0.00;
+        const adjustedPaidAmount = newAmount - payment2307;
+
+        // Update payment record
+        await payment.update({
+            payment_or_number,
+            payment_invoice_number,
+            payment_amount: newAmount,
+            payment_amount_paid: adjustedPaidAmount,
+            payment_2307_amount: payment2307,
+            payment_has_2307,
+            payment_mode,
+            payment_remarks,
+            payment_date,
+            payment_posting_date,
+            payment_collection_date,
+        }, { transaction });
+
+        // Handle sub-records update based on payment_mode
+        switch (payment_mode) {
+            case 'cheque':
+                await PaymentCheque.upsert({
+                    id: paymentId,
+                    payment_cheque_number,
+                    payment_cheque_date
+                }, { transaction });
+                break;
+
+            case 'online_transfer':
+                await PaymentOnlineTransfer.upsert({
+                    id: paymentId,
+                    payment_online_transfer_reference_number,
+                    payment_online_transfer_date
+                }, { transaction });
+                break;
+
+            case 'pdc':
+                await PaymentPDC.upsert({
+                    id: paymentId,
+                    payment_pdc_number,
+                    payment_pdc_date,
+                    payment_pdc_deposit_date,
+                    payment_pdc_credit_date
+                }, { transaction });
+                break;
+
+            case 'cash':
+                // Optional: Remove any existing sub-records for other modes
+                await Promise.all([
+                    PaymentCheque.destroy({ where: { id: paymentId }, transaction }),
+                    PaymentOnlineTransfer.destroy({ where: { id: paymentId }, transaction }),
+                    PaymentPDC.destroy({ where: { id: paymentId }, transaction })
+                ]);
+                break;
+
+            default:
+                throw Object.assign(new Error('Invalid payment mode'), { statusCode: 400 });
+        }
+
+        // Adjust collection balance if amount was changed
+        if (oldAmount !== newAmount) {
+            const currentBalance = parseFloat(collection.collection_balance);
+            let newBalance = currentBalance + oldAmount - newAmount;
+
+            const updatedStatus = newBalance < collection.collection_amount ? 'pending' : 'paid';
+            newBalance = newBalance < 0 ? 0.00 : newBalance;
+
+            await Collection.update({
+                collection_balance: newBalance,
+                collection_status: updatedStatus
+            }, {
+                where: { id: collection.id },
+                transaction
+            });
+        }
+
+        await transaction.commit();
+
+        // Clear caches
+        await clearPaymentsCache(paymentId);
+        await clearCollectionsCache(collection.id);
+
+        return { message: 'Payment updated successfully' };
+    } catch (error) {
+        await transaction.rollback();
+        throw error;
+    }
+};
+
+
+// cancel payment service
+exports.cancelPaymentService = async (paymentId) => {
+    // Validate payment ID format
+    validatePaymentId(paymentId);
+
+    // Start a transaction
+    const transaction = await sequelize.transaction();
+
+    try {
+        // Fetch payment
+        const payment = await Payment.findByPk(paymentId, { transaction });
+        if (!payment) {
+            const error = new Error('Payment not found');
+            error.statusCode = 404;
+            throw error;
+        }
+
+        // Fetch collection
+        const collection = await Collection.findByPk(payment.payment_collection_id, { transaction });
+        if (!collection) {
+            const error = new Error('Collection not found');
+            error.statusCode = 404;
+            throw error;
+        }
+
+        // Cancel the payment
+        await payment.update({ payment_is_cancelled: true }, { transaction });
+
+        const paymentAmount = parseFloat(payment.payment_amount);
+        const collectionBalance = parseFloat(collection.collection_balance);
+        const collectionAmount = parseFloat(collection.collection_amount);
+
+        // Compute new balance
+        const newBalance = collectionBalance + paymentAmount;
+
+        const updatedFields = {
+            collection_balance: newBalance > collectionAmount ? collectionAmount : newBalance,
+            collection_status: newBalance < collectionAmount ? 'pending' : 'paid'
+        };
+
+        // Update the collection
+        await Collection.update(
+            updatedFields,
+            { where: { id: collection.id }, transaction }
+        );
+
+        // Commit the transaction
+        await transaction.commit();
+
+        // Clear caches
+        await clearPaymentsCache(paymentId);
+        await clearCollectionsCache(collection.id);
+
+        return { message: 'Payment cancelled successfully' };
+
+    } catch (error) {
+        await transaction.rollback();
+        throw error;
+    }
+};
+

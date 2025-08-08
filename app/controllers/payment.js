@@ -11,7 +11,7 @@ const {
     createPaymentService,
     getAllPaymentsService,
     getPaymentByIdService,
-    deletePaymentByIdService,
+    updatePaymentByIdService,
     cancelPaymentService
 } = require('@services/payment');
 
@@ -69,6 +69,24 @@ exports.getPaymentById = async (req, res) => {
     }
 };
 
+
+// update payment by ID
+exports.updatePaymentById = async (req, res) => {
+    // check if the user is logged in
+    const token = getToken(req.headers);
+    if (!token) return sendUnauthorizedError(res, '', 'You are not logged in.');
+
+    try {
+        // call the service to update payment by ID
+        const result = await updatePaymentByIdService(req.params.paymentId, req.body);
+
+        // send response with the updated payment data
+        return sendSuccess(res, result, 'Payment updated successfully.');
+    } catch (error) {
+        console.error('Error updating payment by ID:', error);
+        return sendError(res, '', error.message, error.status);
+    }
+}
 
 // cancel payment by ID
 exports.cancelPayment = async (req, res) => {
