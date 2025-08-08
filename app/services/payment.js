@@ -7,7 +7,8 @@ const {
     Collection, 
     ClientDepartment, 
     Billing,
-    Client 
+    Client,
+    sequelize
 } = require('@models');
 const { Op } = require('sequelize');
 
@@ -53,154 +54,157 @@ exports.createPaymentService = async (data) => {
     // Validate input
     validatePaymentFields(data);
 
-    // Retrieve collection and its relations
-    const collection = await Collection.findOne({
-        where: { id: payment_collection_id },
-        include: [{
-            model: Billing,
-            as: 'billing',
+    const transaction = await sequelize.transaction();
+
+    try {
+        // Retrieve collection and relations
+        const collection = await Collection.findOne({
+            where: { id: payment_collection_id },
             include: [{
-                model: ClientDepartment,
-                as: 'department',
+                model: Billing,
+                as: 'billing',
                 include: [{
-                    model: Client,
-                    as: 'client',
-                    attributes: ['id', 'client_name', 'client_tin']
+                    model: ClientDepartment,
+                    as: 'department',
+                    include: [{
+                        model: Client,
+                        as: 'client',
+                        attributes: ['id', 'client_name', 'client_tin']
+                    }],
+                    attributes: ['client_department_name', 'client_department_address']
                 }],
-                attributes: ['client_department_name', 'client_department_address']
+                attributes: ['billing_date']
             }],
-            attributes: ['billing_date']
-        }]
-    });
+            transaction
+        });
 
-    if (!collection) {
-        const error = new Error('Collection not found');
-        error.statusCode = 404;
-        throw error;
-    }
-
-    // Check invoice number match
-    if (collection.collection_invoice_number !== payment_invoice_number) {
-        const error = new Error('Payment invoice number does not match the collection invoice number.');
-        error.statusCode = 400;
-        throw error;
-    }
-
-    // Check and update client TIN if needed
-    const client = collection.billing.department.client;
-    if (payment_client_tin && client) {
-        const existingTIN = client.client_tin?.trim() || '';
-        const incomingTIN = payment_client_tin.trim();
-
-        if (!existingTIN || existingTIN !== incomingTIN) {
-            await Client.update(
-                { client_tin: incomingTIN },
-                { where: { id: client.id } }
-            );
-            // Optional: update locally for downstream logic
-            client.client_tin = incomingTIN;
+        if (!collection) {
+            const error = new Error('Collection not found');
+            error.statusCode = 404;
+            throw error;
         }
-    }
 
-    // Parse amounts
-    const parsedPaymentAmount = parseFloat(payment_amount);
-    const parsedPayment2307Amount = payment_2307_amount ? parseFloat(payment_2307_amount) : 0.00;
-    const collectionBalance = parseFloat(collection.collection_balance);
-    const collectionAmount = parseFloat(collection.collection_amount);
-
-    // Create main payment
-    const newPayment = await Payment.create({
-        payment_collection_id,
-        payment_invoice_number,
-        payment_or_number,
-        payment_amount: parsedPaymentAmount,
-        payment_amount_paid: parsedPaymentAmount - parsedPayment2307Amount,
-        payment_2307_amount: parsedPayment2307Amount,
-        payment_has_2307,
-        payment_mode,
-        payment_remarks,
-        payment_date,
-        payment_posting_date,
-        payment_collection_date,
-        payment_invoice_date: collection.billing.billing_date,
-    });
-
-    // Create sub-records based on payment mode
-    switch (payment_mode) {
-        case 'cash':
-            break;
-
-        case 'cheque':
-            await PaymentCheque.create({
-                id: newPayment.id,
-                payment_cheque_number,
-                payment_cheque_date,
-            });
-            break;
-
-        case 'online_transfer':
-            await PaymentOnlineTransfer.create({
-                id: newPayment.id,
-                payment_online_transfer_reference_number,
-                payment_online_transfer_date,
-            });
-            break;
-
-        case 'pdc':
-            await PaymentPDC.create({
-                id: newPayment.id,
-                payment_pdc_number,
-                payment_pdc_date,
-                payment_pdc_deposit_date,
-                payment_pdc_credit_date,
-            });
-            break;
-
-        default:
-            const error = new Error('Invalid payment mode');
+        // Check invoice number match
+        if (collection.collection_invoice_number !== payment_invoice_number) {
+            const error = new Error('Payment invoice number does not match the collection invoice number.');
             error.statusCode = 400;
             throw error;
-    }
-
-    // Update collection balance or status
-    if (collectionBalance === 0.00) {
-        const collectionNewBalance = collectionAmount - parsedPaymentAmount;
-
-        if (collectionAmount > parsedPaymentAmount) {
-            await Collection.update(
-                { collection_balance: collectionNewBalance },
-                { where: { id: payment_collection_id } }
-            );
-        } else {
-            await Collection.update(
-                { collection_status: 'paid' },
-                { where: { id: payment_collection_id } }
-            );
         }
-    } else {
-        const collectionNewBalance = collectionBalance - parsedPaymentAmount;
 
-        if (collectionBalance > parsedPaymentAmount) {
-            await Collection.update(
-                { collection_balance: collectionNewBalance },
-                { where: { id: payment_collection_id } }
-            );
-        } else {
-            await Collection.update(
-                {
-                    collection_status: 'paid',
-                    collection_balance: collectionNewBalance < 0 ? 0.00 : collectionNewBalance
-                },
-                { where: { id: payment_collection_id } }
-            );
+        // Check and update client TIN if needed
+        const client = collection.billing.department.client;
+        if (payment_client_tin && client) {
+            const existingTIN = client.client_tin?.trim() || '';
+            const incomingTIN = payment_client_tin.trim();
+            if (!existingTIN || existingTIN !== incomingTIN) {
+                await Client.update(
+                    { client_tin: incomingTIN },
+                    { where: { id: client.id }, transaction }
+                );
+            }
         }
+
+        // Parse amounts
+        const parsedPaymentAmount = parseFloat(payment_amount);
+        const parsedPayment2307Amount = payment_2307_amount ? parseFloat(payment_2307_amount) : 0.00;
+        const collectionBalance = parseFloat(collection.collection_balance);
+        const collectionAmount = parseFloat(collection.collection_amount);
+
+        // Create main payment
+        const newPayment = await Payment.create({
+            payment_collection_id,
+            payment_invoice_number,
+            payment_or_number,
+            payment_amount: parsedPaymentAmount,
+            payment_amount_paid: parsedPaymentAmount - parsedPayment2307Amount,
+            payment_2307_amount: parsedPayment2307Amount,
+            payment_has_2307,
+            payment_mode,
+            payment_remarks,
+            payment_date,
+            payment_posting_date,
+            payment_collection_date,
+            payment_invoice_date: collection.billing.billing_date,
+        }, { transaction });
+
+        // Create sub-records based on payment mode
+        switch (payment_mode) {
+            case 'cash':
+                break;
+            case 'cheque':
+                await PaymentCheque.create({
+                    id: newPayment.id,
+                    payment_cheque_number,
+                    payment_cheque_date,
+                }, { transaction });
+                break;
+            case 'online_transfer':
+                await PaymentOnlineTransfer.create({
+                    id: newPayment.id,
+                    payment_online_transfer_reference_number,
+                    payment_online_transfer_date,
+                }, { transaction });
+                break;
+            case 'pdc':
+                await PaymentPDC.create({
+                    id: newPayment.id,
+                    payment_pdc_number,
+                    payment_pdc_date,
+                    payment_pdc_deposit_date,
+                    payment_pdc_credit_date,
+                }, { transaction });
+                break;
+            default:
+                const error = new Error('Invalid payment mode');
+                error.statusCode = 400;
+                throw error;
+        }
+
+        // Update collection balance or status
+        if (collectionBalance === 0.00) {
+            const collectionNewBalance = collectionAmount - parsedPaymentAmount;
+
+            if (collectionAmount > parsedPaymentAmount) {
+                await Collection.update(
+                    { collection_balance: collectionNewBalance },
+                    { where: { id: payment_collection_id }, transaction }
+                );
+            } else {
+                await Collection.update(
+                    { collection_status: 'paid' },
+                    { where: { id: payment_collection_id }, transaction }
+                );
+            }
+        } else {
+            const collectionNewBalance = collectionBalance - parsedPaymentAmount;
+
+            if (collectionBalance > parsedPaymentAmount) {
+                await Collection.update(
+                    { collection_balance: collectionNewBalance },
+                    { where: { id: payment_collection_id }, transaction }
+                );
+            } else {
+                await Collection.update(
+                    {
+                        collection_status: 'paid',
+                        collection_balance: collectionNewBalance < 0 ? 0.00 : collectionNewBalance
+                    },
+                    { where: { id: payment_collection_id }, transaction }
+                );
+            }
+        }
+
+        await transaction.commit();
+
+        // Clear caches outside of transaction
+        await clearPaymentsCache();
+        await clearCollectionsCache();
+
+        return newPayment;
+    } catch (error) {
+        await transaction.rollback();
+        throw error;
     }
-
-    // Clear caches
-    await clearPaymentsCache();
-    await clearCollectionsCache();
-
-    return newPayment;
 };
 
 
@@ -322,17 +326,17 @@ exports.getAllPaymentsService = async (params) => {
 
 // service to get a payment by ID
 exports.getPaymentByIdService = async (paymentId) => {
-    // validate payment ID
+    // Validate payment ID
     validatePaymentId(paymentId);
 
-    // create cache key
+    // Redis cache key
     const cacheKey = `payment:${paymentId}`;
     const cachedPayment = await redisClient.get(cacheKey);
     if (cachedPayment) {
         return JSON.parse(cachedPayment);
     }
 
-    // fetch payment by ID with associated collection and client department
+    // Fetch payment with full associations
     const payment = await Payment.findOne({
         where: { id: paymentId },
         include: [
@@ -343,15 +347,42 @@ exports.getPaymentByIdService = async (paymentId) => {
                     {
                         model: Billing,
                         as: 'billing',
-                        attributes: ['billing_department_id'],
+                        attributes: ['billing_department_id', 'billing_date', 'billing_type'],
                         include: [
                             {
                                 model: ClientDepartment,
                                 as: 'department',
-                                attributes: ['client_department_name']
+                                attributes: ['client_department_name', 'client_department_address'],
+                                include: [
+                                    {
+                                        model: Client,
+                                        as: 'client',
+                                        attributes: ['client_name', 'client_tin']
+                                    }
+                                ]
                             }
                         ]
                     }
+                ]
+            },
+            {
+                model: PaymentCheque,
+                as: 'cheque',
+                attributes: ['payment_cheque_number', 'payment_cheque_date']
+            },
+            {
+                model: PaymentOnlineTransfer,
+                as: 'onlineTransfer',
+                attributes: ['payment_online_transfer_reference_number', 'payment_online_transfer_date']
+            },
+            {
+                model: PaymentPDC,
+                as: 'pdc',
+                attributes: [
+                    'payment_pdc_number',
+                    'payment_pdc_date',
+                    'payment_pdc_deposit_date',
+                    'payment_pdc_credit_date'
                 ]
             }
         ]
@@ -359,11 +390,11 @@ exports.getPaymentByIdService = async (paymentId) => {
 
     if (!payment) {
         const error = new Error('Payment not found');
-        error.statusCode = 404; // Not Found
+        error.statusCode = 404;
         throw error;
     }
 
-    // cache the payment data
+    // Cache the result for 1 hour
     await redisClient.set(cacheKey, JSON.stringify(payment), 'EX', 3600);
 
     return payment;

@@ -1,5 +1,5 @@
 // models and sequelize imports
-const { Billing, ClientDepartment, CancelledInvoice, Collection } = require('@models');
+const { Billing, ClientDepartment, Client, CancelledInvoice, Collection } = require('@models');
 const { Op, Sequelize } = require('sequelize');
 
 // validator functions
@@ -227,7 +227,7 @@ exports.getAllBillingsService = async (query) => {
     const limit = pageSize;
 
     // create cache key
-    const cacheKey = `billings:page:${pageIndex}:${pageSize}:search:${search || ''}:category:${category || ''}:month:${billingMonth || ''}:year:${billingYear || ''}`
+    const cacheKey = `billings:page:${pageIndex}:${pageSize}:search:${search || ''}:category:${category || ''}:month:${billingMonth || ''}:year:${billingYear || ''}`;
     const cachedBillings = await redisClient.get(cacheKey);
     if (cachedBillings) {
         return JSON.parse(cachedBillings);
@@ -241,33 +241,33 @@ exports.getAllBillingsService = async (query) => {
         ...(billingYear && !search ? { billing_year: billingYear } : {}),
         ...(search
             ? {
-                [Op.or]: [
-                    { billing_invoice_number: { [Op.like]: `%${search}%` } },
-                    { '$department.client_department_name$': { [Op.like]: `%${search}%` } }
-                ]
-            }
+                  [Op.or]: [
+                      { billing_invoice_number: { [Op.like]: `%${search}%` } },
+                      { '$department.client_department_name$': { [Op.like]: `%${search}%` } }
+                  ]
+              }
             : {})
     };
 
     // total for the month result
     const totalForMonthResult = await Billing.findOne({
         where: whereClause,
-            include: [
-                {
-                    model: ClientDepartment,
-                    as: 'department',
-                    required: true, // make sure this is true for filtering
-                    attributes: [], // ✅ omit attributes to avoid triggering GROUP BY rules
-                }
-            ],
-            attributes: [
-                [Sequelize.fn('SUM', Sequelize.col('billing_total_amount')), 'total_billing_amount'],
-            ],
-            raw: true,
+        include: [
+            {
+                model: ClientDepartment,
+                as: 'department',
+                required: true,
+                attributes: [],
+            }
+        ],
+        attributes: [
+            [Sequelize.fn('SUM', Sequelize.col('billing_total_amount')), 'total_billing_amount'],
+        ],
+        raw: true,
         subQuery: false
     });
 
-
+    // get paginated billing rows
     const { count, rows } = await Billing.findAndCountAll({
         where: whereClause,
         offset,
@@ -285,8 +285,37 @@ exports.getAllBillingsService = async (query) => {
         ],
     });
 
+    // 🔁 Add unbilled department count logic here
+    let unbilledDepartmentsCount = 0;
 
-    const totalBillingForMonth= parseFloat(totalForMonthResult.total_billing_amount || 0);
+    if (billingMonth && billingYear) {
+        const allActiveDepartments = await ClientDepartment.findAll({
+            where: { client_department_status: 'active' },
+            attributes: ['id'],
+            raw: true
+        });
+
+        const allDepartmentIds = allActiveDepartments.map(dep => dep.id);
+
+        const billedDepartments = await Billing.findAll({
+            where: {
+                billing_month: billingMonth,
+                billing_year: billingYear,
+                billing_is_cancelled: false,
+                billing_department_id: { [Op.not]: null }
+            },
+            attributes: [
+                [Sequelize.fn('DISTINCT', Sequelize.col('billing_department_id')), 'billing_department_id']
+            ],
+            raw: true
+        });
+
+        const billedIds = billedDepartments.map(b => b.billing_department_id);
+
+        unbilledDepartmentsCount = allDepartmentIds.filter(id => !billedIds.includes(id)).length;
+    }
+
+    const totalBillingForMonth = parseFloat(totalForMonthResult.total_billing_amount || 0);
     const totalPages = Math.ceil(count / pageSize);
 
     const response = {
@@ -295,12 +324,54 @@ exports.getAllBillingsService = async (query) => {
         totalPages,
         totalRecords: count,
         totalBillingForMonth,
+        totalUnbilledDepartments: unbilledDepartmentsCount, // ✅ included here
         billings: rows,
     };
 
     await redisClient.set(cacheKey, JSON.stringify(response), 'EX', 3600);
 
     return response;
+};
+
+
+// service to get unbilled departments for a specific month and year
+exports.getUnbilledDepartmentsForMonthService = async (query) => {
+  const { billingMonth, billingYear } = query;
+
+  // Step 1: Get all active departments (optional search by name)
+  const allDepartments = await ClientDepartment.findAll({
+        where: {
+            client_department_status: 'active'
+        },
+        attributes: ['id', 'client_department_name', 'client_department_address']
+  });
+
+
+  // Step 2: Get billed department IDs
+  const billedDepartments = await Billing.findAll({
+    where: {
+      billing_month: billingMonth,
+      billing_year: billingYear,
+      billing_is_cancelled: false,
+      billing_department_id: { [Op.not]: null }
+    },
+    attributes: [
+      [Sequelize.fn('DISTINCT', Sequelize.col('billing_department_id')), 'billing_department_id']
+    ],
+    raw: true,
+  });
+
+  const billedDepartmentIds = billedDepartments.map(b => b.billing_department_id);
+
+  // Step 3: Filter unbilled only
+  const unbilledDepartments = allDepartments.filter(dep => !billedDepartmentIds.includes(dep.id));
+
+  return {
+    totalDepartments: allDepartments.length,
+    totalBilled: billedDepartmentIds.length,
+    totalUnbilled: unbilledDepartments.length,
+    unbilledDepartments
+  };
 };
 
 

@@ -8,6 +8,7 @@ const billingController = require('@controllers/billing');
 router.post('/', billingController.create);
 router.post('/bulk', billingController.createBulk);
 router.get('/', billingController.list);
+router.get('/unbilled-departments', billingController.getUnbilledDepartmentsForMonth);
 router.get('/:billingId', billingController.getById);
 router.put('/:billingId', billingController.update);
 router.delete('/:billingId', billingController.delete);
