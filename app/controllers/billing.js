@@ -10,6 +10,7 @@ const {
 const {
     createBillingService, 
     getAllBillingsService, 
+    getUnbilledDepartmentsForMonthService,
     getBillingByIdService, 
     updateBillingService, 
     deleteBillingService,
@@ -68,6 +69,24 @@ exports.list = async (req, res) => {
         // send response with the list of billings
         return sendSuccess(res, result, 'Billings retrieved successfully.');
     } catch (error) {
+        return sendError(res, '', error.message, error.status);
+    }
+};
+
+// get unbilled departments for a specific month
+exports.getUnbilledDepartmentsForMonth = async (req, res) => {
+    // check if the user is logged in
+    const token = getToken(req.headers);
+    if (!token) return sendUnauthorizedError(res, '', 'You are not logged in.');
+    try {
+        // call the service to get unbilled departments for the month
+        const result = await getUnbilledDepartmentsForMonthService(req.query);
+        
+        // send response with the unbilled departments
+        return sendSuccess(res, result, 'Unbilled departments retrieved successfully.');
+    }
+    
+    catch (error) {
         return sendError(res, '', error.message, error.status);
     }
 };

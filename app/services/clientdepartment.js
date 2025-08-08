@@ -13,7 +13,7 @@ const {
 } = require('@validators/clientdepartment');
 
 // utility redis client
-const { clearClientDepartmentsCache } = require('@utils/clearRedisCache');
+const { clearClientDepartmentsCache, clearBillingsCache } = require('@utils/clearRedisCache');
 
 // redis
 const redisClient = require('@config/redis');
@@ -63,6 +63,7 @@ exports.createClientDepartmentService = async (data) => {
 
     // clear the client departments cache
     await clearClientDepartmentsCache();
+    await clearBillingsCache();
 
     // return the saved department data
     return newClientDepartment;
@@ -243,6 +244,7 @@ exports.updateClientDepartmentService = async (id, data) => {
 
     // clear the client departments cache
     await clearClientDepartmentsCache();
+    await clearBillingsCache();
 
     return updatedDepartment;
 };  
@@ -268,6 +270,7 @@ exports.deleteClientDepartmentService = async (id) => {
 
     // clear the client departments cache
     await clearClientDepartmentsCache();
+    await clearBillingsCache();
 
     return { message: 'Client Department deleted successfully.' };
 };
