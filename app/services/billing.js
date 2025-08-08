@@ -249,7 +249,7 @@ exports.getAllBillingsService = async (query) => {
             : {})
     };
 
-    // total for the month result
+    // get total billing amount for the month
     const totalForMonthResult = await Billing.findOne({
         where: whereClause,
         include: [
@@ -267,7 +267,7 @@ exports.getAllBillingsService = async (query) => {
         subQuery: false
     });
 
-    // get paginated billing rows
+    // get paginated billings
     const { count, rows } = await Billing.findAndCountAll({
         where: whereClause,
         offset,
@@ -285,8 +285,9 @@ exports.getAllBillingsService = async (query) => {
         ],
     });
 
-    // 🔁 Add unbilled department count logic here
-    let unbilledDepartmentsCount = 0;
+    // get billed/total department counts
+    let totalBilledDepartments = 0;
+    let totalDepartments = 0;
 
     if (billingMonth && billingYear) {
         const allActiveDepartments = await ClientDepartment.findAll({
@@ -296,6 +297,7 @@ exports.getAllBillingsService = async (query) => {
         });
 
         const allDepartmentIds = allActiveDepartments.map(dep => dep.id);
+        totalDepartments = allDepartmentIds.length;
 
         const billedDepartments = await Billing.findAll({
             where: {
@@ -311,8 +313,7 @@ exports.getAllBillingsService = async (query) => {
         });
 
         const billedIds = billedDepartments.map(b => b.billing_department_id);
-
-        unbilledDepartmentsCount = allDepartmentIds.filter(id => !billedIds.includes(id)).length;
+        totalBilledDepartments = billedIds.length;
     }
 
     const totalBillingForMonth = parseFloat(totalForMonthResult.total_billing_amount || 0);
@@ -324,7 +325,8 @@ exports.getAllBillingsService = async (query) => {
         totalPages,
         totalRecords: count,
         totalBillingForMonth,
-        totalUnbilledDepartments: unbilledDepartmentsCount, // ✅ included here
+        totalBilledDepartments,
+        totalDepartments,
         billings: rows,
     };
 
