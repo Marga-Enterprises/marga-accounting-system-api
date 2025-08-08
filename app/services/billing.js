@@ -1,5 +1,5 @@
 // models and sequelize imports
-const { Billing, ClientDepartment, Client, CancelledInvoice, Collection } = require('@models');
+const { Billing, ClientDepartment, CancelledInvoice, Collection } = require('@models');
 const { Op, Sequelize } = require('sequelize');
 
 // validator functions
