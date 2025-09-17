@@ -113,7 +113,20 @@ exports.createBillingService = async (data) => {
 
 // service to create bulk billings
 exports.createBulkBillingsService = async (data) => {
-    const bulkDataArray = Object.values(data);
+    // Step 0: Validate input
+    if (!data) {
+        const error = new Error('No billing data provided.');
+        error.status = 400;
+        throw error;
+    }
+
+    // Support both: array and object-with-numeric-keys
+    let bulkDataArray = [];
+    if (Array.isArray(data)) {
+        bulkDataArray = data;
+    } else if (typeof data === 'object') {
+        bulkDataArray = Object.values(data);
+    }
 
     if (!Array.isArray(bulkDataArray) || bulkDataArray.length === 0) {
         const error = new Error('Invalid input data for bulk billing creation.');
@@ -145,6 +158,11 @@ exports.createBulkBillingsService = async (data) => {
     const skipped = [];
 
     for (const billing of bulkDataArray) {
+        if (!billing?.billing_invoice_number) {
+            skipped.push('MISSING_INVOICE_NUMBER');
+            continue;
+        }
+
         // Check if invoice already exists
         const existing = await Billing.findOne({
             where: { billing_invoice_number: billing.billing_invoice_number },
@@ -153,7 +171,6 @@ exports.createBulkBillingsService = async (data) => {
         });
 
         if (existing) {
-            // Skip if already exists
             skipped.push(billing.billing_invoice_number);
             continue;
         }
